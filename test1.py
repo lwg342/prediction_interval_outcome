@@ -6,133 +6,56 @@ from sklearn.model_selection import train_test_split
 import matplotlib.pyplot as plt
 from wlpy.regression import LocLin
 from wlpy.gist import current_time
-
-
-def compute_score(y_test_prediction, yu_test, yl_test):
-    diff_l = np.maximum(yl_test - y_test_prediction, 0) ** 2
-    diff_u = np.maximum(y_test_prediction - yu_test, 0) ** 2
-    return (diff_l + diff_u).mean(axis=1)
-
-
-def get_interval(y, a1, a2):
-    yl = np.floor(y) - a1
-    yu = np.ceil(y) + a2
-    return yl, yu
-
-
-def get_loclin_pred(eval, loclin_models):
-    pred = np.column_stack([mm.vec_fit(eval) for mm in loclin_models]).T
-    return pred
-
-
-def select_indices(compute_score, tolerance, yu_test, yl_test, y_test_pred):
-    score = compute_score(y_test_pred, yu_test, yl_test)
-    smallest_score = np.min(score)
-    threshold = smallest_score + tolerance
-    indices = np.where(score < threshold)[0]
-    return indices
-
-
-def plot_result(
-    get_interval,
-    n,
-    a1,
-    a2,
-    indices,
-    evaluation_points,
-    y_signal,
-    y_eval_pred,
-    y_pred_middle=None,
-    filename=None,
-):
-    plt.figure()
-
-    plt.plot(evaluation_points[:, -1], y_signal, label="y_signal")
-    yl_signal, yu_signal = get_interval(y_signal, a1, a2)
-    plt.plot(evaluation_points[:, -1], yl_signal, label="y_interval", color="green")
-    plt.plot(evaluation_points[:, -1], yu_signal, label="y_interval", color="green")
-
-    plt.plot(
-        evaluation_points[:, -1],
-        y_eval_pred.min(axis=0),
-        color="red",
-        label="pre-selection prediction",
-    )
-    plt.plot(evaluation_points[:, -1], y_eval_pred.max(axis=0), color="red")
-
-    plt.plot(
-        evaluation_points[:, -1],
-        y_eval_pred[indices].min(axis=0),
-        "+",
-        color="orange",
-        label="post-section prediction",
-    )
-    plt.plot(
-        evaluation_points[:, -1], y_eval_pred[indices].max(axis=0), "+", color="orange"
-    )
-    plt.xlabel("f$x_{k}$")
-    if y_pred_middle is not None:
-        plt.plot(
-            evaluation_points[:, -1],
-            y_pred_middle,
-            label="fit y_middle",
-            color="purple",
-        )
-
-    plt.title(
-        f"$n$={n}, $M$={M}, $k$={k}, $v_\epsilon$={var_epsilon}, $a_1$={a1}, $a_2$={a2}, \n $x$_distri={x_distri}, $\epsilon$_distri={epsilon_distri}, df={df}"
-    )
-    plt.legend(bbox_to_anchor=(1.05, 1), loc="upper left")
-
-    if filename is not None:
-        plt.savefig(filename, bbox_inches="tight")
-    plt.show()
+from utils import *
 
 
 # %%
 
 
 def cal_y_signal(eval, params):
-    return np.sqrt(2) + np.dot(eval, params)# + 0.2 * eval[:, -1] ** 2
+    return np.sqrt(2) + np.dot(eval, params)  # + 0.2 * eval[:, -1] ** 2
     # + np.cos(eval[:, -1])
 
 
 n = 1000  # sample size
 M = 100  # number of draws from intervals
 k = 4  # number of covariates
-# beta = np.linspace(1, k, k)* np.pi/10
 beta = np.ones(k) * np.pi / 10
 var_epsilon = 1.0
-a1, a2 = 2.0, 0.0
-x_distri = "normal"
-epsilon_distri = "normal"
-df = 1
+interval_bias = [0.0, 0.0]
+x_distri = "uniform"
+epsilon_distri = "chisquare"
+df = 2
+params_dict = create_param_dict(
+    n, M, k, beta, var_epsilon, interval_bias, x_distri, epsilon_distri, df
+)
 
+x = gen_x(n, k, x_distri)
+epsilon = gen_noise(n, var_epsilon, epsilon_distri, df)
+y, yl, yu, y_middle = gen_outcomes(
+    get_interval, cal_y_signal, beta, interval_bias, x, epsilon
+)
 
-if x_distri == "normal":
-    x = np.random.normal(0, 1, (n, k))
-if x_distri == "uniform":
-    x = np.random.uniform(-np.sqrt(3), np.sqrt(3), (n, k))
+weights = np.random.beta(1, 1, [M, n])
+yd = weights * yl + (1 - weights) * yu
 
-if epsilon_distri == "normal":
-    epsilon = np.random.normal(0, var_epsilon, n)
-if epsilon_distri == "chisquare":
-    epsilon = (np.random.chisquare(df, n) - df) / np.sqrt(2 * df)
-if epsilon_distri == "no_noise":
-    epsilon = np.zeros(n)
-
-y = cal_y_signal(x, beta) + epsilon
-yl, yu = get_interval(y, a1, a2)
-y_middle = (yl + yu) / 2
-
-# Plot the empirical distribution of y conditional on it falls into one of the intervals
+# %%
+# Plot the empirical distribution of y
 plt.figure()
 plt.hist(y, bins=100, density=True)
+plt.hist(yl, bins=100, density=True)
+plt.hist(yd[0], bins=100, density=True)
+plt.show()
+plt.figure()
+plt.plot(y, yd[0], ".")
 plt.show()
 # %%
-# yd = np.random.uniform(yl, yu, (M, n))
-weights = np.random.uniform(0, 1, M)
-yd = np.outer(weights, yl) + np.outer(1 - weights, yu)
+from scipy.stats import wasserstein_distance
+
+dist = wasserstein_distance(y, yd[0])
+print(f"The Wasserstein distance between the two samples is {dist}")
+# %%
+
 
 (
     x_train,
@@ -149,20 +72,16 @@ yd = np.outer(weights, yl) + np.outer(1 - weights, yu)
 
 
 # %%
+tolerance = 1 / np.sqrt(n)
+
 model_linear = LinearRegression().fit(x_train, yd_train)
 # TODO: might want to parallel compute this part.
 # model_kernel = [KernelReg(j, x_train, var_type=f"{'c'*k}") for j in yd_train]
-model_loclin = [LocLin(x_train, j) for j in yd_train.T]
 
 y_test_pred_linear = model_linear.predict(x_test).T
-y_test_pred_loclin = get_loclin_pred(x_test, model_loclin)
 
-tolerance = 1 / np.sqrt(n)
 indices_linear = select_indices(
     compute_score, tolerance, yu_test, yl_test, y_test_pred_linear
-)
-indices_loclin = select_indices(
-    compute_score, tolerance, yu_test, yl_test, y_test_pred_loclin
 )
 # print(f"number of indices slected is {indices.shape[0]}")
 # %%
@@ -176,28 +95,36 @@ evaluation_points = np.column_stack(
 y_signal = cal_y_signal(evaluation_points, beta)
 
 y_eval_pred_linear = model_linear.predict(evaluation_points).T
-y_eval_pred_loclin = get_loclin_pred(evaluation_points, model_loclin)
 
 y_pred_middle_linear = LinearRegression().fit(x, y_middle).predict(evaluation_points)
+
+plot_result(
+    get_interval,
+    **params_dict,
+    indices=indices_linear,
+    evaluation_points=evaluation_points,
+    y_signal=y_signal,
+    y_eval_pred=y_eval_pred_linear,
+    y_pred_middle=y_pred_middle_linear,
+    filename=f"{current_time()}-linear-{n}-{M}-{k}.pdf",
+)
+# %%
+
+
+model_loclin = [LocLin(x_train, j) for j in yd_train.T]
+y_test_pred_loclin = get_loclin_pred(x_test, model_loclin)
+indices_loclin = select_indices(
+    compute_score, tolerance, yu_test, yl_test, y_test_pred_loclin
+)
+y_eval_pred_loclin = get_loclin_pred(evaluation_points, model_loclin)
 y_pred_middle_loclin = LocLin(x, y_middle).vec_fit(evaluation_points)
 
 plot_result(
     get_interval,
     n,
-    a1,
-    a2,
-    indices_linear,
-    evaluation_points,
-    y_signal,
-    y_eval_pred_linear,
-    y_pred_middle_linear,
-    filename=f"{current_time()}-linear-{n}-{M}-{k}.pdf",
-)
-plot_result(
-    get_interval,
-    n,
-    a1,
-    a2,
+    M,
+    k,
+    interval_bias,
     indices_loclin,
     evaluation_points,
     y_signal,
@@ -208,9 +135,32 @@ plot_result(
 
 
 # %%
-# yd = np.random.uniform(yl, yu, (M, n))
-# weights = np.random.uniform(0, 1, M)
-# yd = np.outer(weights, yl) + np.outer(1 - weights, yu)
-# plt.plot(x[:, -1], yd[:5,:].T, 'o')
-# 
+
+y = x[:, -1] * 1
+yl, yu = get_interval(y, interval_bias)
+y_middle = (yl + yu) / 2
+yd = np.random.uniform(yl, yu, (M, n))
+#
+plt.figure()
+plt.plot(x[:, -1], yd[0, :].T, ".", label="sample 1")
+plt.plot(x[:, -1], yd[1, :].T, ".", label="sample 2")
+plt.legend()
+plt.title("Two drawed samples by uniformly drawing from the interval [y_l,y_u]")
+plt.savefig(f"{current_time()}-sample-uniform.pdf", bbox_inches="tight")
+plt.show()
+
+
+#
+weights = np.linspace(0, 1, 5)
+yd = np.outer(weights, yl) + np.outer(1 - weights, yu)
+plt.figure()
+plt.plot(x[:, -1], yd[0, :].T, ".", label="sample 1")
+plt.plot(x[:, -1], yd[1, :].T, ".", label="sample 2")
+plt.legend()
+plt.title(
+    "Two drawed samples by first draw lambda_1, lambda_2 \n and form linear combination of y_l and y_u"
+)
+plt.savefig(f"{current_time()}-sample-fixed-weight.pdf", bbox_inches="tight")
+plt.show()
+
 # %%
