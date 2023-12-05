@@ -1,9 +1,11 @@
 # %%
 import numpy as np
-from sklearn.linear_model import LinearRegression
-from statsmodels.nonparametric.kernel_regression import KernelReg
-from sklearn.model_selection import train_test_split
 import matplotlib.pyplot as plt
+from sklearn.linear_model import LinearRegression
+from sklearn.model_selection import train_test_split
+from sklearn.ensemble import RandomForestRegressor
+from statsmodels.nonparametric.kernel_regression import KernelReg
+from scipy.stats import wasserstein_distance
 from wlpy.regression import LocLin
 from wlpy.gist import current_time
 from utils import *
@@ -17,44 +19,46 @@ def cal_y_signal(eval, params):
     # + np.cos(eval[:, -1])
 
 
-n = 1000  # sample size
+N = 2000  # sample size
 M = 100  # number of draws from intervals
-k = 4  # number of covariates
-beta = np.ones(k) * np.pi / 10
+K = 3  # number of covariates
+beta = np.ones(K) * np.pi / 10
 var_epsilon = 1.0
 interval_bias = [0.0, 0.0]
 x_distri = "uniform"
-epsilon_distri = "chisquare"
+epsilon_distri = "normal"
 df = 2
-params_dict = create_param_dict(
-    n, M, k, beta, var_epsilon, interval_bias, x_distri, epsilon_distri, df
-)
+n_test_points = 100
 
-x = gen_x(n, k, x_distri)
-epsilon = gen_noise(n, var_epsilon, epsilon_distri, df)
+tolerance = 1/N
+
+x = gen_x(N, K, x_distri)
+epsilon = gen_noise(N, var_epsilon, epsilon_distri, df)
 y, yl, yu, y_middle = gen_outcomes(
     get_interval, cal_y_signal, beta, interval_bias, x, epsilon
 )
 
-weights = np.random.beta(1, 1, [M, n])
+
+evaluation_points, y_eval_signal = gen_eval(cal_y_signal, K, beta, n_test_points, x)
+
+weights = np.random.beta(1, 1, [M, N])
 yd = weights * yl + (1 - weights) * yu
 
-# %%
-# Plot the empirical distribution of y
-plt.figure()
-plt.hist(y, bins=100, density=True)
-plt.hist(yl, bins=100, density=True)
-plt.hist(yd[0], bins=100, density=True)
-plt.show()
-plt.figure()
-plt.plot(y, yd[0], ".")
-plt.show()
-# %%
-from scipy.stats import wasserstein_distance
-
-dist = wasserstein_distance(y, yd[0])
-print(f"The Wasserstein distance between the two samples is {dist}")
-# %%
+params_dict = {
+    "n": N,
+    "M": M,
+    "k": K,
+    "beta": beta,
+    "var_epsilon": var_epsilon,
+    "interval_bias": interval_bias,
+    "x_distri": x_distri,
+    "epsilon_distri": epsilon_distri,
+    "df": df,
+    "tolerance": tolerance,
+    "n_test_points": n_test_points,
+    "evaluation_points": evaluation_points,
+    "y_eval_signal": y_eval_signal,
+}
 
 
 (
@@ -69,44 +73,36 @@ print(f"The Wasserstein distance between the two samples is {dist}")
     yd_train,
     yd_test,
 ) = train_test_split(x, yu, yl, y, yd.T, test_size=0.5, random_state=42)
-
-
 # %%
-tolerance = 1 / np.sqrt(n)
+# Plot the empirical distribution of y
+plt.figure()
+plt.hist([y, yd[0], yl], bins=100)
+plt.show()
+plt.figure()
+plt.plot(y, yd[0], ".")
+plt.show()
+
+print(f"d_wasserstein(y,yd[0]) is {wasserstein_distance(y, yd[0])}")
+print(f"d_wasserstein(y,y_middle) is {wasserstein_distance(y, y_middle)}")
+# %%
+
 
 model_linear = LinearRegression().fit(x_train, yd_train)
-# TODO: might want to parallel compute this part.
-# model_kernel = [KernelReg(j, x_train, var_type=f"{'c'*k}") for j in yd_train]
-
 y_test_pred_linear = model_linear.predict(x_test).T
-
 indices_linear = select_indices(
     compute_score, tolerance, yu_test, yl_test, y_test_pred_linear
 )
-# print(f"number of indices slected is {indices.shape[0]}")
-# %%
-n_test_points = 100
-evaluation_points = np.column_stack(
-    (
-        np.ones((n_test_points, k - 1)) * 0,
-        np.linspace(np.min(x[:, -1]), np.max(x[:, -1]), n_test_points),
-    )
-)
-y_signal = cal_y_signal(evaluation_points, beta)
-
 y_eval_pred_linear = model_linear.predict(evaluation_points).T
-
 y_pred_middle_linear = LinearRegression().fit(x, y_middle).predict(evaluation_points)
+y_linear = LinearRegression().fit(x, y_middle).predict(evaluation_points)
 
 plot_result(
     get_interval,
     **params_dict,
     indices=indices_linear,
-    evaluation_points=evaluation_points,
-    y_signal=y_signal,
     y_eval_pred=y_eval_pred_linear,
-    y_pred_middle=y_pred_middle_linear,
-    filename=f"{current_time()}-linear-{n}-{M}-{k}.pdf",
+    y_mid_fit=y_pred_middle_linear,
+    filename=f"{current_time()}-linear-{N}-{M}-{K}.pdf",
 )
 # %%
 
@@ -121,25 +117,39 @@ y_pred_middle_loclin = LocLin(x, y_middle).vec_fit(evaluation_points)
 
 plot_result(
     get_interval,
-    n,
-    M,
-    k,
-    interval_bias,
-    indices_loclin,
-    evaluation_points,
-    y_signal,
-    y_eval_pred_loclin,
-    y_pred_middle_loclin,
-    filename=f"{current_time()}-loclin-{n}-{M}-{k}.pdf",
+    **params_dict,
+    indices=indices_loclin,
+    y_eval_pred=y_eval_pred_loclin,
+    y_mid_fit=y_pred_middle_loclin,
+    filename=f"{current_time()}-loclin-{N}-{M}-{K}.pdf",
 )
 
+# %%
+
+
+# Create the Random Forest regressor
+rf = RandomForestRegressor(n_estimators=100, max_depth=20)
+rf.fit(x_train, yd_train)
+
+# Make predictions
+y_test_pred_rf = rf.predict(x_test).T
+y_eval_pred_rf = rf.predict(evaluation_points).T
+indices_rf = select_indices(compute_score, tolerance, yu_test, yl_test, y_test_pred_rf)
+plot_result(
+    get_interval,
+    **params_dict,
+    indices=indices_rf,
+    y_eval_pred=y_eval_pred_rf,
+    y_mid_fit=None,
+    filename=f"{current_time()}-rf-{N}-{M}-{K}.pdf",
+)
 
 # %%
 
 y = x[:, -1] * 1
 yl, yu = get_interval(y, interval_bias)
 y_middle = (yl + yu) / 2
-yd = np.random.uniform(yl, yu, (M, n))
+yd = np.random.uniform(yl, yu, (M, N))
 #
 plt.figure()
 plt.plot(x[:, -1], yd[0, :].T, ".", label="sample 1")

@@ -8,17 +8,17 @@ def compute_score(y_test_prediction, yu_test, yl_test):
     return (diff_l + diff_u).mean(axis=1)
 
 
-def get_interval(y, interval_bias=[0.0, 0.0]):
-    yl = np.floor(y) - interval_bias[0]
-    yu = np.ceil(y) + interval_bias[1]
+def get_interval(y, scale=1.0, interval_bias=[0.0, 0.0]):
+    yl = np.floor(y / scale) * scale - interval_bias[0]
+    yu = np.ceil(y / scale) * scale + interval_bias[1]
     return yl, yu
 
 
-def gen_x(n, k, x_distri):
+def gen_x(N, k, x_distri):
     if x_distri == "normal":
-        x = np.random.normal(0, 1, (n, k))
+        x = np.random.normal(0, 1, (N, k))
     if x_distri == "uniform":
-        x = np.random.uniform(-np.sqrt(3), np.sqrt(3), (n, k))
+        x = np.random.uniform(-np.sqrt(3), np.sqrt(3), (N, k))
     return x
 
 
@@ -32,11 +32,28 @@ def gen_noise(n, var_epsilon, epsilon_distri, df):
     return epsilon
 
 
-def gen_outcomes(get_interval, cal_y_signal, beta, interval_bias, x, epsilon):
+def gen_outcomes(get_interval, cal_y_signal, beta, interval_bias, x, epsilon, scale=1):
     y = cal_y_signal(x, beta) + epsilon
-    yl, yu = get_interval(y, interval_bias=interval_bias)
+    yl, yu = get_interval(y, scale = scale, interval_bias=interval_bias)
     y_middle = (yl + yu) / 2
     return y, yl, yu, y_middle
+
+
+def calculate_weights_and_yd(M, N, yl, yu, beta_a=1, beta_b=1):
+    weights = np.random.beta(beta_a, beta_b, [M, N])
+    yd = weights * yl + (1 - weights) * yu
+    return weights, yd
+
+
+def gen_eval(cal_y_signal, k, beta, n_test_points, x):
+    evaluation_points = np.column_stack(
+        (
+            np.ones((n_test_points, k - 1)) * 0,
+            np.linspace(np.min(x[:, -1]), np.max(x[:, -1]), n_test_points),
+        )
+    )
+    y_eval_signal = cal_y_signal(evaluation_points, beta)
+    return evaluation_points, y_eval_signal
 
 
 def get_loclin_pred(eval, loclin_models):
@@ -54,26 +71,28 @@ def select_indices(compute_score, tolerance, yu_test, yl_test, y_test_pred):
 
 def plot_result(
     get_interval,
-    n,
+    N,
     M,
-    k,
+    K,
     interval_bias,
     var_epsilon,
     x_distri,
     epsilon_distri,
     df,
+    scale, 
     indices,
     evaluation_points,
-    y_signal,
+    y_eval_signal,
     y_eval_pred,
-    y_pred_middle=None,
+    y_mid_fit=None,
+    y_true_fit=None,
     filename=None,
     **kwargs,
 ):
     plt.figure()
 
-    plt.plot(evaluation_points[:, -1], y_signal, label="y_signal")
-    yl_signal, yu_signal = get_interval(y_signal, interval_bias=[0.0, 0.0])
+    plt.plot(evaluation_points[:, -1], y_eval_signal, label="y_signal")
+    yl_signal, yu_signal = get_interval(y_eval_signal, interval_bias=[0.0, 0.0], scale = scale)
     plt.plot(evaluation_points[:, -1], yl_signal, label="y_interval", color="green")
     plt.plot(evaluation_points[:, -1], yu_signal, label="y_interval", color="green")
 
@@ -95,17 +114,22 @@ def plot_result(
     plt.plot(
         evaluation_points[:, -1], y_eval_pred[indices].max(axis=0), "+", color="orange"
     )
+
+    plt.plot(
+        evaluation_points[:, -1],
+        y_true_fit,
+        label="fit y_true",
+        color="purple",
+    )
+
     plt.xlabel("f$x_{k}$")
-    if y_pred_middle is not None:
+    if y_mid_fit is not None:
         plt.plot(
-            evaluation_points[:, -1],
-            y_pred_middle,
-            label="fit y_middle",
-            color="purple",
+            evaluation_points[:, -1], y_mid_fit, label="fit y_middle", linestyle="--"
         )
 
     plt.title(
-        f"$n$={n}, $M$={M}, $k$={k}, $v_\epsilon$={var_epsilon}, $b_1$={interval_bias[0]}, $b_2$={interval_bias[1]}, \n $x$_distri={x_distri}, $\epsilon$_distri={epsilon_distri}, df={df}"
+        f"$N$={N}, $M$={M}, $K$={K}, $v_\epsilon$={var_epsilon}, $b_1$={interval_bias[0]}, $b_2$={interval_bias[1]}, \n $x$_distri={x_distri}, $\epsilon$_distri={epsilon_distri}, df={df}, scale = {scale}"
     )
     plt.legend(bbox_to_anchor=(1.05, 1), loc="upper left")
 
@@ -115,7 +139,19 @@ def plot_result(
 
 
 def create_param_dict(
-    n, M, k, beta, var_epsilon, interval_bias, x_distri, epsilon_distri, df
+    n,
+    M,
+    k,
+    beta,
+    var_epsilon,
+    interval_bias,
+    x_distri,
+    epsilon_distri,
+    df,
+    tolerance,
+    n_test_points,
+    evaluation_points,
+    y_eval_signal,
 ):
     params_dict = {
         "n": n,
@@ -127,5 +163,9 @@ def create_param_dict(
         "x_distri": x_distri,
         "epsilon_distri": epsilon_distri,
         "df": df,
+        "tolerance": tolerance,
+        "n_test_points": n_test_points,
+        "evaluation_points": evaluation_points,
+        "y_eval_signal": y_eval_signal,
     }
     return params_dict
