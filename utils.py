@@ -34,7 +34,7 @@ def gen_noise(n, var_epsilon, epsilon_distri, df):
 
 def gen_outcomes(get_interval, cal_y_signal, beta, interval_bias, x, epsilon, scale=1):
     y = cal_y_signal(x, beta) + epsilon
-    yl, yu = get_interval(y, scale = scale, interval_bias=interval_bias)
+    yl, yu = get_interval(y, scale=scale, interval_bias=interval_bias)
     y_middle = (yl + yu) / 2
     return y, yl, yu, y_middle
 
@@ -79,55 +79,75 @@ def plot_result(
     x_distri,
     epsilon_distri,
     df,
-    scale, 
+    scale,
     indices,
     evaluation_points,
     y_eval_signal,
     y_eval_pred,
     y_mid_fit=None,
     y_true_fit=None,
+    yl_fit=None,
+    yu_fit=None,
     filename=None,
     **kwargs,
 ):
     plt.figure()
 
-    plt.plot(evaluation_points[:, -1], y_eval_signal, label="y_signal")
-    yl_signal, yu_signal = get_interval(y_eval_signal, interval_bias=[0.0, 0.0], scale = scale)
-    plt.plot(evaluation_points[:, -1], yl_signal, label="y_interval", color="green")
-    plt.plot(evaluation_points[:, -1], yu_signal, label="y_interval", color="green")
+    plt.plot(
+        evaluation_points[:, -1], y_eval_signal, label="y_signal", color="tab:blue", linewidth=2
+    )
+
+    yl_signal, yu_signal = get_interval(
+        y_eval_signal, interval_bias=[0.0, 0.0], scale=scale
+    )
+    plt.plot(
+        evaluation_points[:, -1],
+        yl_signal,
+        color="tab:green",
+        label="y_interval",
+    )
+    plt.plot(evaluation_points[:, -1], yu_signal, color="tab:green")
 
     plt.plot(
         evaluation_points[:, -1],
         y_eval_pred.min(axis=0),
-        color="red",
+        color="tab:orange",
         label="pre-selection prediction",
     )
-    plt.plot(evaluation_points[:, -1], y_eval_pred.max(axis=0), color="red")
+    plt.plot(evaluation_points[:, -1], y_eval_pred.max(axis=0), color="tab:orange")
 
     plt.plot(
         evaluation_points[:, -1],
         y_eval_pred[indices].min(axis=0),
-        "+",
-        color="orange",
+        "--",
+        color="tab:red",
         label="post-section prediction",
     )
     plt.plot(
-        evaluation_points[:, -1], y_eval_pred[indices].max(axis=0), "+", color="orange"
+        evaluation_points[:, -1],
+        y_eval_pred[indices].max(axis=0),
+        "--",
+        color="tab:red",
     )
 
     plt.plot(
         evaluation_points[:, -1],
         y_true_fit,
         label="fit y_true",
-        color="purple",
+        color="tab:cyan",
     )
 
-    plt.xlabel("f$x_{k}$")
+    if yl_fit is not None:
+        plt.plot(evaluation_points[:, -1], yl_fit, label="fit yl", color="#E7D2CC")
+    if yu_fit is not None:
+        plt.plot(evaluation_points[:, -1], yu_fit, label="fit yu", color="#E7D2CC")
+
     if y_mid_fit is not None:
         plt.plot(
-            evaluation_points[:, -1], y_mid_fit, label="fit y_middle", linestyle="--"
+            evaluation_points[:, -1], y_mid_fit, label="fit y_middle", linestyle="--", color ="#BEB8DC"
         )
 
+    plt.xlabel("f$x_{k}$")
     plt.title(
         f"$N$={N}, $M$={M}, $K$={K}, $v_\epsilon$={var_epsilon}, $b_1$={interval_bias[0]}, $b_2$={interval_bias[1]}, \n $x$_distri={x_distri}, $\epsilon$_distri={epsilon_distri}, df={df}, scale = {scale}"
     )
