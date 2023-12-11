@@ -46,14 +46,14 @@ def calculate_weights_and_yd(M, N, yl, yu, beta_a=1, beta_b=1):
 
 
 def gen_eval(cal_y_signal, k, beta, n_test_points, x):
-    evaluation_points = np.column_stack(
+    x_eval = np.column_stack(
         (
             np.ones((n_test_points, k - 1)) * 0,
             np.linspace(np.min(x[:, -1]), np.max(x[:, -1]), n_test_points),
         )
     )
-    y_eval_signal = cal_y_signal(evaluation_points, beta)
-    return evaluation_points, y_eval_signal
+    y_eval_signal = cal_y_signal(x_eval, beta)
+    return x_eval, y_eval_signal
 
 
 def get_loclin_pred(eval, loclin_models):
@@ -81,7 +81,7 @@ def plot_result(
     df,
     scale,
     indices,
-    evaluation_points,
+    x_eval,
     y_eval_signal,
     y_eval_pred,
     y_mid_fit=None,
@@ -94,57 +94,57 @@ def plot_result(
     plt.figure()
 
     plt.plot(
-        evaluation_points[:, -1], y_eval_signal, label="y_signal", color="tab:blue", linewidth=2
+        x_eval[:, -1], y_eval_signal, label="y_signal", color="tab:blue", linewidth=2
     )
 
     yl_signal, yu_signal = get_interval(
         y_eval_signal, interval_bias=[0.0, 0.0], scale=scale
     )
     plt.plot(
-        evaluation_points[:, -1],
+        x_eval[:, -1],
         yl_signal,
         color="tab:green",
         label="y_interval",
     )
-    plt.plot(evaluation_points[:, -1], yu_signal, color="tab:green")
+    plt.plot(x_eval[:, -1], yu_signal, color="tab:green")
 
     plt.plot(
-        evaluation_points[:, -1],
+        x_eval[:, -1],
         y_eval_pred.min(axis=0),
         color="tab:orange",
         label="pre-selection prediction",
     )
-    plt.plot(evaluation_points[:, -1], y_eval_pred.max(axis=0), color="tab:orange")
+    plt.plot(x_eval[:, -1], y_eval_pred.max(axis=0), color="tab:orange")
 
     plt.plot(
-        evaluation_points[:, -1],
+        x_eval[:, -1],
         y_eval_pred[indices].min(axis=0),
         "--",
         color="tab:red",
         label="post-section prediction",
     )
     plt.plot(
-        evaluation_points[:, -1],
+        x_eval[:, -1],
         y_eval_pred[indices].max(axis=0),
         "--",
         color="tab:red",
     )
 
     plt.plot(
-        evaluation_points[:, -1],
+        x_eval[:, -1],
         y_true_fit,
         label="fit y_true",
         color="tab:cyan",
     )
 
     if yl_fit is not None:
-        plt.plot(evaluation_points[:, -1], yl_fit, label="fit yl", color="#E7D2CC")
+        plt.plot(x_eval[:, -1], yl_fit, label="fit yl", color="#E7D2CC")
     if yu_fit is not None:
-        plt.plot(evaluation_points[:, -1], yu_fit, label="fit yu", color="#E7D2CC")
+        plt.plot(x_eval[:, -1], yu_fit, label="fit yu", color="#E7D2CC")
 
     if y_mid_fit is not None:
         plt.plot(
-            evaluation_points[:, -1], y_mid_fit, label="fit y_middle", linestyle="--", color ="#BEB8DC"
+            x_eval[:, -1], y_mid_fit, label="fit y_middle", linestyle="--", color ="#BEB8DC"
         )
 
     plt.xlabel("f$x_{k}$")
@@ -170,7 +170,7 @@ def create_param_dict(
     df,
     tolerance,
     n_test_points,
-    evaluation_points,
+    x_eval,
     y_eval_signal,
 ):
     params_dict = {
@@ -185,7 +185,7 @@ def create_param_dict(
         "df": df,
         "tolerance": tolerance,
         "n_test_points": n_test_points,
-        "evaluation_points": evaluation_points,
+        "x_eval": x_eval,
         "y_eval_signal": y_eval_signal,
     }
     return params_dict
