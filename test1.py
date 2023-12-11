@@ -39,7 +39,7 @@ y, yl, yu, y_middle = gen_outcomes(
 )
 
 
-evaluation_points, y_eval_signal = gen_eval(cal_y_signal, K, beta, n_test_points, x)
+x_eval, y_eval_signal = gen_eval(cal_y_signal, K, beta, n_test_points, x)
 
 weights = np.random.beta(1, 1, [M, N])
 yd = weights * yl + (1 - weights) * yu
@@ -56,7 +56,7 @@ params_dict = {
     "df": df,
     "tolerance": tolerance,
     "n_test_points": n_test_points,
-    "evaluation_points": evaluation_points,
+    "x_eval": x_eval,
     "y_eval_signal": y_eval_signal,
 }
 
@@ -92,9 +92,9 @@ y_test_pred_linear = model_linear.predict(x_test).T
 indices_linear = select_indices(
     compute_score, tolerance, yu_test, yl_test, y_test_pred_linear
 )
-y_eval_pred_linear = model_linear.predict(evaluation_points).T
-y_pred_middle_linear = LinearRegression().fit(x, y_middle).predict(evaluation_points)
-y_linear = LinearRegression().fit(x, y_middle).predict(evaluation_points)
+y_eval_pred_linear = model_linear.predict(x_eval).T
+y_pred_middle_linear = LinearRegression().fit(x, y_middle).predict(x_eval)
+y_linear = LinearRegression().fit(x, y_middle).predict(x_eval)
 
 plot_result(
     get_interval,
@@ -112,8 +112,8 @@ y_test_pred_loclin = get_loclin_pred(x_test, model_loclin)
 indices_loclin = select_indices(
     compute_score, tolerance, yu_test, yl_test, y_test_pred_loclin
 )
-y_eval_pred_loclin = get_loclin_pred(evaluation_points, model_loclin)
-y_pred_middle_loclin = LocLin(x, y_middle).vec_fit(evaluation_points)
+y_eval_pred_loclin = get_loclin_pred(x_eval, model_loclin)
+y_pred_middle_loclin = LocLin(x, y_middle).vec_fit(x_eval)
 
 plot_result(
     get_interval,
@@ -133,7 +133,7 @@ rf.fit(x_train, yd_train)
 
 # Make predictions
 y_test_pred_rf = rf.predict(x_test).T
-y_eval_pred_rf = rf.predict(evaluation_points).T
+y_eval_pred_rf = rf.predict(x_eval).T
 indices_rf = select_indices(compute_score, tolerance, yu_test, yl_test, y_test_pred_rf)
 plot_result(
     get_interval,

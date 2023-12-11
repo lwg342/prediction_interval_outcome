@@ -32,7 +32,7 @@ epsilon_distri = "normal"
 df = 2
 n_test_points = 100
 scale = 2.0
-p1, p2 = 1, 1
+p1, p2 = 2, 0.5
 
 tolerance = 1 / N
 
@@ -42,7 +42,7 @@ y, yl, yu, y_middle = gen_outcomes(
     get_interval, cal_y_signal, beta, interval_bias, x, epsilon, scale
 )
 
-evaluation_points, y_eval_signal = gen_eval(cal_y_signal, K, beta, n_test_points, x)
+x_eval, y_eval_signal = gen_eval(cal_y_signal, K, beta, n_test_points, x)
 
 params_dict = {
     "N": N,
@@ -56,7 +56,7 @@ params_dict = {
     "df": df,
     "tolerance": tolerance,
     "n_test_points": n_test_points,
-    "evaluation_points": evaluation_points,
+    "x_eval": x_eval,
     "y_eval_signal": y_eval_signal,
     "scale": scale,
 }
@@ -80,16 +80,16 @@ weights, yd = calculate_weights_and_yd(M, N, yl, yu, 1, 1)
 
 # %%
 def fit_and_predict(
-    method, x_train, y_train, x_test, evaluation_points, krr_kernel="rbf"
+    method, x_train, yd_train, x_test, x_eval, krr_kernel="rbf"
 ):
     if method not in ["loclin", "linear", "rf", "krr"]:
         raise ValueError("method must be one of 'loclin', 'linear' or 'rf'")
     if method == "loclin":
         model = [LocLin(x_train, j) for j in yd_train.T]
         y_test_pred = get_loclin_pred(x_test, model)
-        y_eval_pred = get_loclin_pred(evaluation_points, model)
-        y_mid_fit = LocLin(x, y_middle).vec_fit(evaluation_points)
-        y_true_fit = LocLin(x, y).vec_fit(evaluation_points)
+        y_eval_pred = get_loclin_pred(x_eval, model)
+        y_mid_fit = LocLin(x, y_middle).vec_fit(x_eval)
+        y_true_fit = LocLin(x, y).vec_fit(x_eval)
         yl_fit, yu_fit = None, None
 
     else:
@@ -98,22 +98,22 @@ def fit_and_predict(
         if method == "rf":
             model = RandomForestRegressor(n_estimators=200, max_depth=10)
         if method == "krr":
-            model = KernelRidge(alpha=0.1, kernel=krr_kernel)
+            model = KernelRidge(alpha=0.001, kernel=krr_kernel)
 
-        model.fit(x_train, y_train)
+        model.fit(x_train, yd_train)
         y_test_pred = model.predict(x_test).T
-        y_eval_pred = model.predict(evaluation_points).T
-        y_mid_fit = model.fit(x, y_middle).predict(evaluation_points)
-        y_true_fit = model.fit(x, y).predict(evaluation_points)
-        yl_fit = model.fit(x, yl).predict(evaluation_points)
-        yu_fit = model.fit(x, yu).predict(evaluation_points)
+        y_eval_pred = model.predict(x_eval).T
+        y_mid_fit = model.fit(x, y_middle).predict(x_eval)
+        y_true_fit = model.fit(x, y).predict(x_eval)
+        yl_fit = model.fit(x, yl).predict(x_eval)
+        yu_fit = model.fit(x, yu).predict(x_eval)
     return y_test_pred, y_eval_pred, y_mid_fit, y_true_fit, yl_fit, yu_fit
 
 
 method = "krr"
 
 y_test_pred, y_eval_pred, y_mid_fit, y_true_fit, yl_fit, yu_fit = fit_and_predict(
-    method, x_train, yd_train, x_test, evaluation_points
+    method, x_train, yd_train, x_test, x_eval
 )
 indices = select_indices(compute_score, tolerance, yu_test, yl_test, y_test_pred)
 # Plotting Results
@@ -126,7 +126,7 @@ plot_result(
     y_true_fit=y_true_fit,
     # yl_fit=yl_fit,
     # yu_fit=yu_fit,
-    filename=f"simulation-results/{current_time()}-{method}-{N}-{M}-{K}.pdf",
+    # filename=f"simulation-results/{current_time()}-{method}-{N}-{M}-{K}.pdf",
 )
 
 
