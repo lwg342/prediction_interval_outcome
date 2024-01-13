@@ -88,11 +88,12 @@ class SimData:
             self.yl_fit,
             self.yu_fit,
         ) = fit_and_predict(self, **estimation_kwargs)
-        
+
         self.tolerance = estimation_kwargs["tolerance"]
         self.score = compute_score(self.y_test_pred, self.yu_test, self.yl_test)
-        self.indices = select_indices(
-            self.score, self.tolerance
+        self.indices = select_indices(self.score, self.tolerance)
+        self.res_min, self.res_max = pred_error(
+            self.y_eval_signal, self.y_eval_pred[self.indices]
         )
 
     def split_data(self, train_ratio=0.5):
@@ -211,7 +212,8 @@ class SimData:
 from sklearn.linear_model import LinearRegression
 from sklearn.kernel_ridge import KernelRidge
 from sklearn.ensemble import RandomForestRegressor
-from wlpy.regression import LocLin
+
+# from wlpy.regression import LocLin
 
 
 def fit_and_predict(
@@ -225,13 +227,13 @@ def fit_and_predict(
 ):
     if method not in ["loclin", "linear", "rf", "krr"]:
         raise ValueError("method must be one of 'loclin', 'linear' or 'rf'")
-    if method == "loclin":
-        model = [LocLin(data.x_train, j) for j in data.yd_train.T]
-        y_test_pred = get_loclin_pred(data.x_test, model)
-        y_eval_pred = get_loclin_pred(data.x_eval, model)
-        y_mid_fit = LocLin(data.x, data.y_middle).vec_fit(data.x_eval)
-        y_true_fit = LocLin(data.x, data.y).vec_fit(data.x_eval)
-        yl_fit, yu_fit = None, None
+    # if method == "loclin":
+    #     model = [LocLin(data.x_train, j) for j in data.yd_train.T]
+    #     y_test_pred = get_loclin_pred(data.x_test, model)
+    #     y_eval_pred = get_loclin_pred(data.x_eval, model)
+    #     y_mid_fit = LocLin(data.x, data.y_middle).vec_fit(data.x_eval)
+    #     y_true_fit = LocLin(data.x, data.y).vec_fit(data.x_eval)
+    #     yl_fit, yu_fit = None, None
 
     else:
         if method == "linear":
@@ -272,6 +274,12 @@ def select_indices(score, tolerance):
     threshold = smallest_score + tolerance
     indices = np.where(score <= threshold)[0]
     return indices
+
+
+def pred_error(y_true, y_pred):
+    res_min = np.min(np.abs(y_true - y_pred), axis=0)
+    res_max = np.max(np.abs(y_true - y_pred), axis=0)
+    return res_min, res_max
 
 
 def compute_score(y_test_pred, yu_test, yl_test):

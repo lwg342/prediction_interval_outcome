@@ -5,6 +5,7 @@
 *.png 
 
 * /*
+tex/**
 .vscode/*
 .DS_Store
 
