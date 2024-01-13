@@ -2,7 +2,7 @@
 import numpy as np
 from utils_dgp import SimData
 from wlpy.gist import current_time
-
+import matplotlib.pyplot as plt
 # %%
 sample_size = 2000
 sim = SimData(N=sample_size, epsilon_distri="chisquare")
@@ -25,7 +25,6 @@ sim.fit_and_predict(**est_kwargs)
 sim.indices
 
 # %%
-import matplotlib.pyplot as plt
 
 res_min, res_max = sim.res_min, sim.res_max
 plt.plot(sim.x_eval[:, -1], sim.y_eval_signal, linewidth=2.5, label="true signal")

@@ -190,12 +190,12 @@ class SimData:
         y_eval_signal = self.cal_y_signal(x_eval, self.params)
         return x_eval, y_eval_signal
 
-    def create_param_dict(self):
+    def __repr__(self):
         params_dict = {
             "N": self.N,
             "M": self.M,
             "K": self.K,
-            "beta": self.beta,
+            "Beta params": self.Beta_params,
             "var_epsilon": self.var_epsilon,
             "interval_bias": self.interval_bias,
             "x_distri": self.x_distri,
@@ -203,10 +203,11 @@ class SimData:
             "df": self.df,
             "tolerance": self.tolerance,
             "n_test_points": self.n_test_points,
-            "x_eval": self.x_eval,
-            "y_eval_signal": self.y_eval_signal,
         }
-        return params_dict
+        str = ""
+        for k, v in params_dict.items():
+            str+= f"{k}: {v}\n"
+        return str
 
 
 from sklearn.linear_model import LinearRegression
@@ -223,7 +224,7 @@ def fit_and_predict(
     krr_alpha=0.1,
     rf_max_depth=10,
     rf_n_estimators=200,
-    **kwargs
+    **kwargs,
 ):
     if method not in ["loclin", "linear", "rf", "krr"]:
         raise ValueError("method must be one of 'loclin', 'linear' or 'rf'")
