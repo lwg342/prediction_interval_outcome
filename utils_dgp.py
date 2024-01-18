@@ -1,61 +1,86 @@
 import numpy as np
 from sklearn.model_selection import train_test_split
+from typing import Callable, List, Optional, Tuple
 
 
 class SimData:
     """
-    A class representing a simulation.
+    A class representing simulated data for ensemble interval prediction.
+
+    Parameters:
+    - N1 (int): Number of training samples.
+    - N2 (int): Number of validation samples.
+    - M (int): Number of ensemble members.
+    - K (int): Number of features.
+    - params (float): Parameter value.
+    - x_distri (str): Distribution of input features.
+    - epsilon_distri (str): Distribution of noise.
+    - var_epsilon (float): Variance of noise.
+    - df (int): Degrees of freedom for noise distribution.
+    - interval_bias (Optional[List[float]]): Bias for interval calculation.
+    - scale (float): Scaling factor for interval calculation.
+    - n_test_points (int): Number of test points.
+    - cal_y_signal (Optional[Callable]): Function to calculate y signal.
+    - Beta_params (Optional[List[int]]): Parameters for Beta distribution.
 
     Attributes:
-        N (int): Number of samples.
-        M (int): Number of simulations.
-        K (int): Number of features.
-        beta (float): Coefficient value.
-        x_distri (str): Distribution of x values.
-        epsilon_distri (str): Distribution of noise values.
-        var_epsilon (float): Variance of noise values.
-        df (int): Degrees of freedom for noise distribution.
-        interval_bias (list): Bias for interval values.
-        scale (float): Scale factor for interval values.
-        tolerance (float): Tolerance value.
-        n_test_points (int): Number of test points.
+    - N1 (int): Number of training samples.
+    - N2 (int): Number of validation samples.
+    - M (int): Number of ensemble members.
+    - K (int): Number of features.
+    - params (float): Parameter value.
+    - var_epsilon (float): Variance of noise.
+    - scale (float): Scaling factor for interval calculation.
+    - interval_bias (Optional[List[float]]): Bias for interval calculation.
+    - x_distri (str): Distribution of input features.
+    - epsilon_distri (str): Distribution of noise.
+    - df (int): Degrees of freedom for noise distribution.
+    - n_test_points (int): Number of test points.
+    - Beta_params (Optional[List[int]]): Parameters for Beta distribution.
 
     Methods:
-        gen_x(): Generate x values based on the specified distribution.
-        gen_noise(): Generate noise values based on the specified distribution.
-        get_intervals(y): Get the lower and upper interval values for the given y values.
+    - calculate_weights_and_yd(Beta_params: Optional[List[int]] = None, M: Optional[int] = None) -> None:
+        Calculates weights and yd values based on Beta distribution parameters and M value.
+    - get_interval(y: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
+        Calculates the lower and upper bounds of the interval based on the given y values.
+    - gen_x(N: int, K: int) -> np.ndarray:
+        Generates input features x with the specified number of samples and features.
+    - gen_noise(N: int) -> np.ndarray:
+        Generates noise epsilon with the specified number of samples.
     """
 
     def __init__(
         self,
-        N=1000,
-        M=200,
-        K=4,
-        params=np.pi / 10,
-        x_distri="uniform",
-        epsilon_distri="normal",
-        var_epsilon=1.0,
-        df=2,
-        interval_bias=[0.0, 0.0],
-        scale=1.0,
-        n_test_points=100,
-        cal_y_signal=None,
-        Beta_params=[1, 1],  # parameters for Beta distribution
+        N1: int = 1000,
+        N2: int = 1000,
+        M: int = 200,
+        K: int = 4,
+        params: float = np.pi / 10,
+        x_distri: str = "uniform",
+        epsilon_distri: str = "normal",
+        var_epsilon: float = 1.0,
+        df: int = 2,
+        interval_bias: Optional[List[float]] = None,
+        scale: float = 1.0,
+        n_test_points: int = 100,
+        cal_y_signal: Optional[Callable] = None,
+        Beta_params: Optional[List[int]] = None,
     ):
-        self.N = N
+        self.N1 = N1
+        self.N2 = N2
         self.M = M
         self.K = K
         self.params = params
 
         self.var_epsilon = var_epsilon
         self.scale = scale
-        self.interval_bias = interval_bias
+        self.interval_bias = interval_bias if interval_bias is not None else [0.0, 0.0]
         self.x_distri = x_distri
         self.epsilon_distri = epsilon_distri
         self.df = df
         self.n_test_points = n_test_points
-        self.Beta_params = Beta_params
-        if cal_y_signal == None:
+        self.Beta_params = Beta_params if Beta_params is not None else [1, 1]
+        if cal_y_signal is None:
             self.cal_y_signal = (
                 lambda x, params: np.sqrt(2)
                 + np.dot(x, params * np.ones(self.K))
@@ -64,19 +89,32 @@ class SimData:
             )
 
     def generate_data(self):
-        self.x = self.gen_x()
-        self.epsilon = self.gen_noise()
+        self.x = self.gen_x(N=self.N1, K=self.K)
+        self.x_conformal = self.gen_x(N=self.N2, K=self.K)
+
+        self.epsilon = self.gen_noise(N=self.N1)
+        self.epsilon_conformal = self.gen_noise(N=self.N2)
+
         self.y = self.cal_y_signal(self.x, self.params) + self.epsilon
+        self.y_conformal = (
+            self.cal_y_signal(self.x_conformal, self.params) + self.epsilon_conformal
+        )
+
         self.yl, self.yu = self.get_intervals(self.y)
-        self.y_middle = (self.yl + self.yu) / 2
+        self.yl_conformal, self.yu_conformal = self.get_intervals(self.y_conformal)
+
         self.x_eval, self.y_eval_signal = self.gen_eval()
+
+    @property
+    def y_middle(self):
+        return (self.yl + self.yu) / 2
 
     def calculate_weights_and_yd(self, Beta_params=None, M=None):
         if Beta_params == None:
             Beta_params = self.Beta_params
-        if M == None:
+        if M is None:
             M = self.M
-        self.weights = np.random.beta(Beta_params[0], Beta_params[1], [M, self.N])
+        self.weights = np.random.beta(Beta_params[0], Beta_params[1], [M, self.N1])
         self.yd = self.weights * self.yl + (1 - self.weights) * self.yu
 
     def fit_and_predict(self, **estimation_kwargs):
@@ -87,6 +125,8 @@ class SimData:
             self.y_true_fit,
             self.yl_fit,
             self.yu_fit,
+            self.y_conformal_pred,
+            self.fitted_model,
         ) = fit_and_predict(self, **estimation_kwargs)
 
         self.tolerance = estimation_kwargs["tolerance"]
@@ -118,7 +158,7 @@ class SimData:
             random_state=42,
         )
 
-    def get_interval(self, y):
+    def get_intervals(self, y):
         """
         Get the lower and upper interval values for the given y values.
 
@@ -133,34 +173,20 @@ class SimData:
         yu = np.ceil(y / self.scale) * self.scale + self.interval_bias[1]
         return yl, yu
 
-    def gen_x(self):
-        """
-        Generate x values based on the specified distribution.
-
-        Returns:
-            numpy.ndarray: Array of x values.
-        """
+    def gen_x(self, N: int, K: int) -> np.ndarray:
         if self.x_distri == "normal":
-            x = np.random.normal(0, 1, (self.N, self.K))
-        if self.x_distri == "uniform":
-            x = np.random.uniform(-np.sqrt(3), np.sqrt(3), (self.N, self.K))
+            x = np.random.normal(0, 1, (N, K))
+        elif self.x_distri == "uniform":
+            x = np.random.uniform(-np.sqrt(3), np.sqrt(3), (N, K))
         return x
 
-    def gen_noise(self):
-        """
-        Generate noise values based on the specified distribution.
-
-        Returns:
-            numpy.ndarray: Array of noise values.
-        """
+    def gen_noise(self, N: int) -> np.ndarray:
         if self.epsilon_distri == "normal":
-            epsilon = np.random.normal(0, self.var_epsilon, self.N)
-        if self.epsilon_distri == "chisquare":
-            epsilon = (np.random.chisquare(self.df, self.N) - self.df) / np.sqrt(
-                2 * self.df
-            )
-        if self.epsilon_distri == "no_noise":
-            epsilon = np.zeros(self.N)
+            epsilon = np.random.normal(0, self.var_epsilon, N)
+        elif self.epsilon_distri == "chisquare":
+            epsilon = (np.random.chisquare(self.df, N) - self.df) / np.sqrt(2 * self.df)
+        elif self.epsilon_distri == "no_noise":
+            epsilon = np.zeros(N)
         return epsilon
 
     def get_intervals(self, y):
@@ -192,9 +218,10 @@ class SimData:
 
     def __repr__(self):
         params_dict = {
-            "N": self.N,
-            "M": self.M,
-            "K": self.K,
+            "N1 training and testing": self.N1,
+            "N2 conformal sample": self.N2,
+            "M random draws from the interval": self.M,
+            "K num of features": self.K,
             "Beta params": self.Beta_params,
             "var_epsilon": self.var_epsilon,
             "interval_bias": self.interval_bias,
@@ -204,10 +231,8 @@ class SimData:
             "tolerance": self.tolerance,
             "n_test_points": self.n_test_points,
         }
-        str = ""
-        for k, v in params_dict.items():
-            str+= f"{k}: {v}\n"
-        return str
+        params_strs = [f"{k}: {v}" for k, v in params_dict.items()]
+        return "\n".join(params_strs)
 
 
 from sklearn.linear_model import LinearRegression
@@ -246,15 +271,25 @@ def fit_and_predict(
         if method == "krr":
             model = KernelRidge(alpha=krr_alpha, kernel=krr_kernel)
 
-        model.fit(data.x_train, data.yd_train)
-        y_test_pred = model.predict(data.x_test).T
-        y_eval_pred = model.predict(data.x_eval).T
-
         y_mid_fit = model.fit(data.x, data.y_middle).predict(data.x_eval)
         y_true_fit = model.fit(data.x, data.y).predict(data.x_eval)
         yl_fit = model.fit(data.x, data.yl).predict(data.x_eval)
         yu_fit = model.fit(data.x, data.yu).predict(data.x_eval)
-    return y_test_pred, y_eval_pred, y_mid_fit, y_true_fit, yl_fit, yu_fit
+
+        fitted_model = model.fit(data.x_train, data.yd_train)
+        y_test_pred = fitted_model.predict(data.x_test).T
+        y_eval_pred = fitted_model.predict(data.x_eval).T
+        y_conformal_pred = fitted_model.predict(data.x_conformal).T
+    return (
+        y_test_pred,
+        y_eval_pred,
+        y_mid_fit,
+        y_true_fit,
+        yl_fit,
+        yu_fit,
+        y_conformal_pred,
+        fitted_model,
+    )
 
 
 def select_indices(score, tolerance):
@@ -283,12 +318,29 @@ def pred_error(y_true, y_pred):
     return res_min, res_max
 
 
-def compute_score(y_test_pred, yu_test, yl_test):
+def compute_score(y_test_pred, yu_test, yl_test, option="mean"):
     diff_l = np.maximum(yl_test - y_test_pred, 0) ** 2
     diff_u = np.maximum(y_test_pred - yu_test, 0) ** 2
-    return (diff_l + diff_u).mean(axis=1)
+    if option == "mean":
+        return (diff_l + diff_u).mean(axis=1)
+    if option == "all":
+        return diff_l + diff_u
 
 
 def get_loclin_pred(eval, loclin_models):
     pred = np.column_stack([mm.vec_fit(eval) for mm in loclin_models]).T
     return pred
+
+
+def find_min_max_below_constant(y_values, constant):
+    min_y = float("inf")
+    max_y = float("-inf")
+
+    for y in y_values:
+        current_score = compute_score(y)
+
+        if current_score < constant:
+            min_y = min(min_y, y)
+            max_y = max(max_y, y)
+
+    return min_y, max_y

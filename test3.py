@@ -62,7 +62,7 @@ plt.plot(
     label="prediction when we observe y",
 )
 plt.title(
-    f"$N$={sim.N}, $M$={sim.M}, $K$={sim.K}, $v_\epsilon$={sim.var_epsilon}, $b_1$={sim.interval_bias[0]}, $b_2$={sim.interval_bias[1]}, \n $x$_distri={sim.x_distri}, $\epsilon$_distri={sim.epsilon_distri}, df={sim.df}, scale = {sim.scale}"
+    f"$N$={sim.N1}, $M$={sim.M}, $K$={sim.K}, $v_\epsilon$={sim.var_epsilon}, $b_1$={sim.interval_bias[0]}, $b_2$={sim.interval_bias[1]}, \n $x$_distri={sim.x_distri}, $\epsilon$_distri={sim.epsilon_distri}, df={sim.df}, scale = {sim.scale}"
 )
 plt.legend(loc="best", bbox_to_anchor=(1, 1))
 plt.savefig(f"simulation-results/{current_time()}-pred_error.pdf", bbox_inches="tight")
@@ -71,10 +71,10 @@ plt.plot(sim.score, ".", label="Loss for each draw")
 
 plt.xlabel(f"Draw m, total number of draws is M = {sim.M}")
 plt.title(
-    f"$N$={sim.N}, $M$={sim.M}, $K$={sim.K}, $v_\epsilon$={sim.var_epsilon}, $b_1$={sim.interval_bias[0]}, $b_2$={sim.interval_bias[1]}, \n $x$_distri={sim.x_distri}, $\epsilon$_distri={sim.epsilon_distri}, df={sim.df}, scale = {sim.scale}"
+    f"$N$={sim.N1}, $M$={sim.M}, $K$={sim.K}, $v_\epsilon$={sim.var_epsilon}, $b_1$={sim.interval_bias[0]}, $b_2$={sim.interval_bias[1]}, \n $x$_distri={sim.x_distri}, $\epsilon$_distri={sim.epsilon_distri}, df={sim.df}, scale = {sim.scale}"
 )
 plt.axhline(
-    y=sim.score.min() + 1 / sim.N**0.5,
+    y=sim.score.min() + 1 / sim.N1**0.5,
     color="tab:green",
     linestyle="--",
     label="tolerance = n^-0.5",
@@ -86,7 +86,7 @@ plt.axhline(
     label="tolerance = n^-0.7",
 )
 plt.axhline(
-    y=sim.score.min() + 1 / sim.N,
+    y=sim.score.min() + 1 / sim.N1,
     color="tab:orange",
     linestyle="--",
     label="tolerance = n^-1",
