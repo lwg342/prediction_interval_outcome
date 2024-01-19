@@ -31,7 +31,7 @@ conformal_score = compute_score(
     sim.y_conformal_pred, sim.yl_conformal, sim.yu_conformal, option="all"
 )
 
-conformal_score = conformal_score[sim.indices].min(axis=0)
+conformal_score = conformal_score[sim.indices].max(axis=0)
 
 # %%
 sim.fitted_model.predict(sim.x_eval).T[sim.indices]
@@ -50,7 +50,7 @@ for j in range(sim.x_eval.shape[0]):
             compute_score(y_new_pred, y_new_test, y_new_test)
             for y_new_test in y_new_range
         ]
-    ).min(axis=1)
+    ).max(axis=1)
     selected = np.where(y_new_test_score < qq)[0]
     conformal_set += [[y_new_range[selected].min(), y_new_range[selected].max()]]
 conformal_set = np.array(conformal_set).T
