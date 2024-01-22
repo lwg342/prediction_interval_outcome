@@ -87,6 +87,8 @@ class SimData:
                 + np.cos(x[:, -1] * 3)
                 + 0.5 * x[:, -1] ** 2
             )
+        else:
+            self.cal_y_signal = cal_y_signal
 
     def generate_data(self):
         self.x = self.gen_x(N=self.N1, K=self.K)
