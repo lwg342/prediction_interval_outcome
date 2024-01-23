@@ -5,9 +5,11 @@ from wlpy.gist import current_time
 import matplotlib.pyplot as plt
 # %%
 sample_size = 2000
-sim = SimData(N1=sample_size, scale =2, epsilon_distri="chisquare")
+sim = SimData(N1=sample_size, scale =2, epsilon_distri="chisquare", var_epsilon=0.0)
 sim.generate_data()
-sim.calculate_weights_and_yd()
+weights = np.outer(np.linspace(0, 1, sim.M), np.ones(sim.N1))
+# weights = None
+sim.calculate_weights_and_yd(weights=weights)
 sim.split_data()
 
 est_kwargs = {
@@ -31,6 +33,8 @@ plt.plot(sim.x_eval[:, -1], sim.y_eval_signal, linewidth=2.5, label="true signal
 
 plt.plot(sim.x_eval[:, -1], res_min, "-", label="pred error min")
 plt.plot(sim.x_eval[:, -1], res_max, "-", label="pred error max")
+plt.plot(sim.x_eval[:, -1], sim.yl_fit, "-", label="pred error min")
+plt.plot(sim.x_eval[:, -1], sim.yu_fit, "-", label="pred error max")
 plt.plot(
     sim.x_eval[:, -1],
     np.abs(sim.y_eval_signal - sim.y_true_fit),
@@ -92,5 +96,5 @@ plt.axhline(
     label="tolerance = n^-1",
 )
 plt.legend()
-plt.savefig(f"simulation-results/{current_time()}-loss.pdf", bbox_inches="tight")
+# plt.savefig(f"simulation-results/{current_time()}-loss.pdf", bbox_inches="tight")
 # %%
