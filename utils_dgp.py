@@ -58,7 +58,7 @@ class SimData:
         params: float = np.pi / 10,
         x_distri: str = "uniform",
         epsilon_distri: str = "normal",
-        var_epsilon: float = 1.0,
+        std_eps: float = 1.0,
         df: int = 2,
         interval_bias: Optional[List[float]] = None,
         scale: float = 1.0,
@@ -72,7 +72,7 @@ class SimData:
         self.K = K
         self.params = params
 
-        self.var_epsilon = var_epsilon
+        self.std_eps = std_eps
         self.scale = scale
         self.interval_bias = interval_bias if interval_bias is not None else [0.0, 0.0]
         self.x_distri = x_distri
@@ -187,7 +187,7 @@ class SimData:
 
     def gen_noise(self, N: int) -> np.ndarray:
         if self.epsilon_distri == "normal":
-            epsilon = np.random.normal(0, self.var_epsilon, N)
+            epsilon = np.random.normal(0, self.std_eps, N)
         elif self.epsilon_distri == "chisquare":
             epsilon = (np.random.chisquare(self.df, N) - self.df) / np.sqrt(2 * self.df)
         elif self.epsilon_distri == "no_noise":
@@ -228,7 +228,7 @@ class SimData:
             "M random draws from the interval": self.M,
             "K num of features": self.K,
             "Beta params": self.Beta_params,
-            "var_epsilon": self.var_epsilon,
+            "var_epsilon": self.std_eps,
             "interval_bias": self.interval_bias,
             "x_distri": self.x_distri,
             "epsilon_distri": self.epsilon_distri,
