@@ -5,7 +5,7 @@ from wlpy.gist import current_time
 import matplotlib.pyplot as plt
 # %%
 sample_size = 2000
-sim = SimData(N=sample_size, epsilon_distri="chisquare")
+sim = SimData(N1=sample_size, scale =2, epsilon_distri="chisquare")
 sim.generate_data()
 sim.calculate_weights_and_yd()
 sim.split_data()
