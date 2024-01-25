@@ -7,15 +7,6 @@ import matplotlib.pyplot as plt
 
 
 # %%
-def run_simulation(est_kwargs, sample_size=1000):
-    sim = SimData(N1=sample_size)
-    sim.generate_data()
-    sim.calculate_weights_and_yd()
-    sim.split_data()
-    sim.fit_and_predict(**est_kwargs)
-    return sim
-
-
 est_kwargs = {
     "method": "krr",
     "krr_kernel": "rbf",
@@ -24,7 +15,11 @@ est_kwargs = {
     "tolerance": 1 / (400) ** 0.7,
 }
 
-sim = run_simulation(est_kwargs)
+sim = SimData(N1=2000, N2=2000, scale=1)
+sim.generate_data()
+sim.calculate_weights_and_yd()
+sim.split_data()
+sim.fit_and_predict(**est_kwargs)
 
 # %% Conformal inference part
 
@@ -35,7 +30,7 @@ conformal_score = compute_score(
 conformal_score = conformal_score[sim.indices].min(axis=0)
 
 
-y_new_range = np.linspace(-5, 20, 200)
+y_new_range = np.linspace(-5, 15, 1000)
 qq = np.quantile(conformal_score, 0.95)
 print(f"qq: {qq}")
 conformal_set = []
@@ -63,12 +58,10 @@ conformal_set_min = y_hat_min - qq_min
 
 
 # %%
-score_if_y_observed = np.abs(
-    sim.y_conformal - sim.fitted_model.fit(sim.x, sim.y).predict(sim.x_conformal)
-)
+score_if_y_observed = np.abs(sim.y_conformal - sim.y_conformal_pred_obs)
 
 qq2 = np.quantile(score_if_y_observed, 0.95)
-y_hat = sim.fitted_model.fit(sim.x, sim.y).predict(sim.x_eval)
+y_hat = sim.y_eval_pred_obs
 
 # %%
 
@@ -94,7 +87,7 @@ plt.fill_between(
 
 plt.plot(
     sim.x_eval[:, -1],
-    sim.y_true_fit,
+    sim.y_eval_pred_obs,
     linestyle="dashed",
     label="prediction when we observe y",
 )
@@ -135,6 +128,37 @@ plt.fill_between(
 
 plt.legend(loc="best", bbox_to_anchor=(1, 1))
 # plt.savefig(f"simulation-results/{current_time()}-pred_error.pdf", bbox_inches="tight")
+# %%
+y_conformal_pred_max = sim.y_conformal_pred[sim.indices].max(axis=0)
+y_conformal_pred_min = sim.y_conformal_pred[sim.indices].min(axis=0)
+
+score_max = compute_score(
+    y_conformal_pred_max, sim.yl_conformal, sim.yu_conformal, option="all"
+)
+score_min = compute_score(
+    y_conformal_pred_min, sim.yl_conformal, sim.yu_conformal, option="all"
+)
+
+qq_max = np.quantile(score_max, 0.95)
+qq_min = np.quantile(score_min, 0.95)
+
+
+def conformal_set(x_new, y_range, compute_score, qq):
+    conformal_set = []
+    for j in range(x_new.shape[0]):
+        y_new_score = np.array(
+            [compute_score(x_new[j], y_new, y_new) for y_new in y_range]
+        )
+        selected = np.where(y_new_score < qq)[0]
+        conformal_set += [[y_new_range[selected].min(), y_new_range[selected].max()]]
+    return np.array(conformal_set).T
+
+
+conformal_set_max = sim.y_eval_pred.max(axis=0) + qq_max
+conformal_set_min = sim.y_eval_pred.min(axis=0) - qq_min
+
+
+# %%
 
 # %%
 
@@ -203,16 +227,23 @@ plt.show()
 width = conformal_set[1] - conformal_set[0]
 width2 = 2 * qq2 * np.ones(sim.x_eval.shape[0])
 width3 = 2 * 1.96 * sim.std_eps * np.ones(sim.x_eval.shape[0])
+width4 = conformal_set_max - conformal_set_min
 
 # Plot each width
 plt.plot(sim.x_eval[:, -1], width, label="Width 1")
 plt.plot(sim.x_eval[:, -1], width2, label="Width 2")
 plt.plot(sim.x_eval[:, -1], width3, label="Width 3")
-plt.ylim(0, np.max(width)+1)
+plt.plot(sim.x_eval[:, -1], width4, label="Width 4")
+plt.ylim(0, np.max(width) + 1)
 # Add a legend
 plt.legend()
 
 # Show the plot
-plt.show()  # %%
-
+plt.show()
 # %%
+cc = conformal_score[sim.indices]
+
+np.quantile(cc, 0.95, axis=1).max()
+yy = np.linspace(-5, 15, 1000)
+
+score = compute_score(sim.y_eval_pred[sim.indices], sim.y_eval_pre, option="all")

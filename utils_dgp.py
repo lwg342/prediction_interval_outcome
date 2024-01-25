@@ -127,7 +127,9 @@ class SimData:
             self.y_test_pred,
             self.y_eval_pred,
             self.y_mid_fit,
-            self.y_true_fit,
+            self.y_eval_pred_obs,
+            self.y_test_pred_obs,
+            self.y_conformal_pred_obs,
             self.yl_fit,
             self.yu_fit,
             self.y_conformal_pred,
@@ -277,7 +279,11 @@ def fit_and_predict(
             model = KernelRidge(alpha=krr_alpha, kernel=krr_kernel)
 
         y_mid_fit = model.fit(data.x, data.y_middle).predict(data.x_eval)
-        y_true_fit = model.fit(data.x, data.y).predict(data.x_eval)
+
+        y_eval_pred_obs = model.fit(data.x, data.y).predict(data.x_eval)
+        y_test_pred_obs = model.predict(data.x_test)
+        y_conformal_pred_obs = model.predict(data.x_conformal)
+
         yl_fit = model.fit(data.x, data.yl).predict(data.x_eval)
         yu_fit = model.fit(data.x, data.yu).predict(data.x_eval)
 
@@ -285,11 +291,14 @@ def fit_and_predict(
         y_test_pred = fitted_model.predict(data.x_test).T
         y_eval_pred = fitted_model.predict(data.x_eval).T
         y_conformal_pred = fitted_model.predict(data.x_conformal).T
+
     return (
         y_test_pred,
         y_eval_pred,
         y_mid_fit,
-        y_true_fit,
+        y_eval_pred_obs,
+        y_test_pred_obs,
+        y_conformal_pred_obs,
         yl_fit,
         yu_fit,
         y_conformal_pred,

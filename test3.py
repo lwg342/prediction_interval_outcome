@@ -37,7 +37,7 @@ plt.plot(sim.x_eval[:, -1], sim.yl_fit, "-", label="pred error min")
 plt.plot(sim.x_eval[:, -1], sim.yu_fit, "-", label="pred error max")
 plt.plot(
     sim.x_eval[:, -1],
-    np.abs(sim.y_eval_signal - sim.y_true_fit),
+    np.abs(sim.y_eval_signal - sim.y_eval_pred_obs),
     "-",
     label="pred error when we observe y",
 )
@@ -61,7 +61,7 @@ plt.fill_between(
 
 plt.plot(
     sim.x_eval[:, -1],
-    sim.y_true_fit,
+    sim.y_eval_pred_obs,
     linestyle="dashed",
     label="prediction when we observe y",
 )
