@@ -111,12 +111,15 @@ class SimData:
     def y_middle(self):
         return (self.yl + self.yu) / 2
 
-    def calculate_weights_and_yd(self, Beta_params=None, M=None):
+    def calculate_weights_and_yd(self, weights=None, Beta_params=None, M=None):
         if Beta_params == None:
             Beta_params = self.Beta_params
         if M is None:
             M = self.M
-        self.weights = np.random.beta(Beta_params[0], Beta_params[1], [M, self.N1])
+        if weights is None:
+            self.weights = np.random.beta(Beta_params[0], Beta_params[1], [M, self.N1])
+        else:
+            self.weights = weights
         self.yd = self.weights * self.yl + (1 - self.weights) * self.yu
 
     def fit_and_predict(self, **estimation_kwargs):
