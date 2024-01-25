@@ -5,7 +5,7 @@ from wlpy.gist import current_time
 import matplotlib.pyplot as plt
 # %%
 sample_size = 2000
-sim = SimData(N1=sample_size, scale =2, epsilon_distri="chisquare", var_epsilon=0.0)
+sim = SimData(N1=sample_size, scale =2, epsilon_distri="normal", std_eps=1.0)
 sim.generate_data()
 weights = np.outer(np.linspace(0, 1, sim.M), np.ones(sim.N1))
 # weights = None
@@ -66,7 +66,7 @@ plt.plot(
     label="prediction when we observe y",
 )
 plt.title(
-    f"$N$={sim.N1}, $M$={sim.M}, $K$={sim.K}, $v_\epsilon$={sim.var_epsilon}, $b_1$={sim.interval_bias[0]}, $b_2$={sim.interval_bias[1]}, \n $x$_distri={sim.x_distri}, $\epsilon$_distri={sim.epsilon_distri}, df={sim.df}, scale = {sim.scale}"
+    f"$N$={sim.N1}, $M$={sim.M}, $K$={sim.K}, $\sigma_\epsilon$={sim.std_eps}, $b_1$={sim.interval_bias[0]}, $b_2$={sim.interval_bias[1]}, \n $x$_distri={sim.x_distri}, $\epsilon$_distri={sim.epsilon_distri}, df={sim.df}, scale = {sim.scale}"
 )
 plt.legend(loc="best", bbox_to_anchor=(1, 1))
 plt.savefig(f"simulation-results/{current_time()}-pred_error.pdf", bbox_inches="tight")
@@ -75,7 +75,7 @@ plt.plot(sim.score, ".", label="Loss for each draw")
 
 plt.xlabel(f"Draw m, total number of draws is M = {sim.M}")
 plt.title(
-    f"$N$={sim.N1}, $M$={sim.M}, $K$={sim.K}, $v_\epsilon$={sim.var_epsilon}, $b_1$={sim.interval_bias[0]}, $b_2$={sim.interval_bias[1]}, \n $x$_distri={sim.x_distri}, $\epsilon$_distri={sim.epsilon_distri}, df={sim.df}, scale = {sim.scale}"
+    f"$N$={sim.N1}, $M$={sim.M}, $K$={sim.K}, $\sigma_\epsilon$={sim.std_eps}, $b_1$={sim.interval_bias[0]}, $b_2$={sim.interval_bias[1]}, \n $x$_distri={sim.x_distri}, $\epsilon$_distri={sim.epsilon_distri}, df={sim.df}, scale = {sim.scale}"
 )
 plt.axhline(
     y=sim.score.min() + 1 / sim.N1**0.5,
