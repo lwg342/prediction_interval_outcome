@@ -17,14 +17,14 @@ plt.scatter(sim.x[:, -1], sim.yu, s=5, alpha=0.5)
 
 
 # %%
-def cal_y_signal(x, params):
-    return 10 * np.ones(x.shape[0]) + 1 * x[:, -1]
 
+def lin_model(x, params):
+    return 10 * np.ones(x.shape[0]) + 1 * x[:, -1]
 
 # %%
 sample_size = 2000
 sim = SimData(
-    N1=sample_size, scale=2, M=2000, epsilon_distri="normal", std_eps=2, cal_y_signal=cal_y_signal
+    N1=sample_size, scale=1, M=5000, epsilon_distri="normal", std_eps=1.0, cal_y_signal=lin_model
 )
 sim.generate_data()
 # weights = np.outer(np.linspace(0, 1, sim.M), np.ones(sim.N1))
@@ -37,12 +37,12 @@ est_kwargs = {
     "krr_kernel": "rbf",
     "krr_alpha": 0.02,
     "rf_max_depth": 10,
+    "rf_n_estimators": 200,
     # "tolerance": 0,
     "tolerance": 1 / np.sqrt(sample_size),
-    # "tolerance": 1 / (sample_size) ** 0.7,
 }
 
-sim.fit_and_predict(**est_kwargs)
+sim.fit(**est_kwargs)
 
 sim.indices
 # %%

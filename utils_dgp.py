@@ -3,6 +3,15 @@ from sklearn.model_selection import train_test_split
 from typing import Callable, List, Optional, Tuple
 
 
+def compute_score(y_test_pred, yu_test, yl_test, option="mean"):
+    diff_l = np.maximum(yl_test - y_test_pred, 0) ** 2
+    diff_u = np.maximum(y_test_pred - yu_test, 0) ** 2
+    if option == "mean":
+        return (diff_l + diff_u).mean(axis=1)
+    if option == "all":
+        return diff_l + diff_u
+
+
 class SimData:
     """
     A class representing simulated data for ensemble interval prediction.
@@ -92,20 +101,19 @@ class SimData:
 
     def generate_data(self):
         self.x = self.gen_x(N=self.N1, K=self.K)
-        self.x_conformal = self.gen_x(N=self.N2, K=self.K)
-
         self.epsilon = self.gen_noise(N=self.N1)
-        self.epsilon_conformal = self.gen_noise(N=self.N2)
-
         self.y = self.cal_y_signal(self.x, self.params) + self.epsilon
+        self.yl, self.yu = self.get_intervals(self.y)
+
+        self.x_conformal = self.gen_x(N=self.N2, K=self.K)
+        self.epsilon_conformal = self.gen_noise(N=self.N2)
         self.y_conformal = (
             self.cal_y_signal(self.x_conformal, self.params) + self.epsilon_conformal
         )
-
-        self.yl, self.yu = self.get_intervals(self.y)
         self.yl_conformal, self.yu_conformal = self.get_intervals(self.y_conformal)
 
         self.x_eval, self.y_eval_signal = self.gen_eval()
+        self.yl_eval, self.yu_eval = self.get_intervals(self.y_eval_signal)
 
     @property
     def y_middle(self):
@@ -121,27 +129,6 @@ class SimData:
         else:
             self.weights = weights
         self.yd = self.weights * self.yl + (1 - self.weights) * self.yu
-
-    def fit_and_predict(self, **estimation_kwargs):
-        (
-            self.y_test_pred,
-            self.y_eval_pred,
-            self.y_mid_fit,
-            self.y_eval_pred_obs,
-            self.y_test_pred_obs,
-            self.y_conformal_pred_obs,
-            self.yl_fit,
-            self.yu_fit,
-            self.y_conformal_pred,
-            self.fitted_model,
-        ) = fit_and_predict(self, **estimation_kwargs)
-
-        self.tolerance = estimation_kwargs["tolerance"]
-        self.score = compute_score(self.y_test_pred, self.yu_test, self.yl_test)
-        self.indices = select_indices(self.score, self.tolerance)
-        self.res_min, self.res_max = pred_error(
-            self.y_eval_signal, self.y_eval_pred[self.indices]
-        )
 
     def split_data(self, train_ratio=0.5):
         (
@@ -165,6 +152,28 @@ class SimData:
             random_state=42,
         )
 
+    def fit(self, **est_kwargs):
+        self.models = {
+            target: fit_model(self.x, getattr(self, target), **est_kwargs)
+            for target in ["y", "yl", "yu"]
+        }
+        self.models["yd_train"] = fit_model(self.x_train, self.yd_train, **est_kwargs)
+
+        self.y_eval_pred = self.models["yd_train"].predict(self.x_eval).T
+        self.y_test_pred = self.models["yd_train"].predict(self.x_test).T
+        self.y_conformal_pred = self.models["yd_train"].predict(self.x_conformal).T
+
+        self.y_eval_pred_obs = self.models["y"].predict(self.x_eval)
+        self.y_test_pred_obs = self.models["y"].predict(self.x_test)
+        self.y_conformal_pred_obs = self.models["y"].predict(self.x_conformal)
+
+        self.tolerance = est_kwargs["tolerance"]
+        self.score = compute_score(self.y_test_pred, self.yu_test, self.yl_test)
+        self.indices = select_indices(self.score, self.tolerance)
+        self.res_min, self.res_max = pred_error(
+            self.y_eval_signal, self.y_eval_pred[self.indices]
+        )
+
     def get_intervals(self, y):
         """
         Get the lower and upper interval values for the given y values.
@@ -184,7 +193,7 @@ class SimData:
         if self.x_distri == "normal":
             x = np.random.normal(0, 1, (N, K))
         elif self.x_distri == "uniform":
-            x = np.random.uniform(-np.sqrt(3), np.sqrt(3), (N, K))
+            x = np.random.uniform(-np.sqrt(3), np.sqrt(3), (N, K)) 
         return x
 
     def gen_noise(self, N: int) -> np.ndarray:
@@ -195,21 +204,6 @@ class SimData:
         elif self.epsilon_distri == "no_noise":
             epsilon = np.zeros(N)
         return epsilon
-
-    def get_intervals(self, y):
-        """
-        Get the lower and upper interval values for the given y values.
-
-        Args:
-            y (numpy.ndarray): Array of y values.
-
-        Returns:
-            numpy.ndarray: Array of lower interval values.
-            numpy.ndarray: Array of upper interval values.
-        """
-        yl = np.floor(y / self.scale) * self.scale - self.interval_bias[0]
-        yu = np.ceil(y / self.scale) * self.scale + self.interval_bias[1]
-        return yl, yu
 
     def gen_eval(self):
         x_eval = np.column_stack(
@@ -246,65 +240,6 @@ from sklearn.linear_model import LinearRegression
 from sklearn.kernel_ridge import KernelRidge
 from sklearn.ensemble import RandomForestRegressor
 
-# from wlpy.regression import LocLin
-
-
-def fit_and_predict(
-    data,
-    method="krr",
-    krr_kernel="rbf",
-    krr_alpha=0.1,
-    rf_max_depth=10,
-    rf_n_estimators=200,
-    **kwargs,
-):
-    if method not in ["loclin", "linear", "rf", "krr"]:
-        raise ValueError("method must be one of 'loclin', 'linear' or 'rf'")
-    # if method == "loclin":
-    #     model = [LocLin(data.x_train, j) for j in data.yd_train.T]
-    #     y_test_pred = get_loclin_pred(data.x_test, model)
-    #     y_eval_pred = get_loclin_pred(data.x_eval, model)
-    #     y_mid_fit = LocLin(data.x, data.y_middle).vec_fit(data.x_eval)
-    #     y_true_fit = LocLin(data.x, data.y).vec_fit(data.x_eval)
-    #     yl_fit, yu_fit = None, None
-
-    else:
-        if method == "linear":
-            model = LinearRegression()
-        if method == "rf":
-            model = RandomForestRegressor(
-                n_estimators=rf_n_estimators, max_depth=rf_max_depth
-            )
-        if method == "krr":
-            model = KernelRidge(alpha=krr_alpha, kernel=krr_kernel)
-
-        y_mid_fit = model.fit(data.x, data.y_middle).predict(data.x_eval)
-
-        y_eval_pred_obs = model.fit(data.x, data.y).predict(data.x_eval)
-        y_test_pred_obs = model.predict(data.x_test)
-        y_conformal_pred_obs = model.predict(data.x_conformal)
-
-        yl_fit = model.fit(data.x, data.yl).predict(data.x_eval)
-        yu_fit = model.fit(data.x, data.yu).predict(data.x_eval)
-
-        fitted_model = model.fit(data.x_train, data.yd_train)
-        y_test_pred = fitted_model.predict(data.x_test).T
-        y_eval_pred = fitted_model.predict(data.x_eval).T
-        y_conformal_pred = fitted_model.predict(data.x_conformal).T
-
-    return (
-        y_test_pred,
-        y_eval_pred,
-        y_mid_fit,
-        y_eval_pred_obs,
-        y_test_pred_obs,
-        y_conformal_pred_obs,
-        yl_fit,
-        yu_fit,
-        y_conformal_pred,
-        fitted_model,
-    )
-
 
 def select_indices(score, tolerance):
     """
@@ -332,29 +267,30 @@ def pred_error(y_true, y_pred):
     return res_min, res_max
 
 
-def compute_score(y_test_pred, yu_test, yl_test, option="mean"):
-    diff_l = np.maximum(yl_test - y_test_pred, 0) ** 2
-    diff_u = np.maximum(y_test_pred - yu_test, 0) ** 2
-    if option == "mean":
-        return (diff_l + diff_u).mean(axis=1)
-    if option == "all":
-        return diff_l + diff_u
-
-
 def get_loclin_pred(eval, loclin_models):
     pred = np.column_stack([mm.vec_fit(eval) for mm in loclin_models]).T
     return pred
 
 
-def find_min_max_below_constant(y_values, constant):
-    min_y = float("inf")
-    max_y = float("-inf")
+def fit_model(x, y, method, **kwargs):
+    if method == "linear":
+        model = LinearRegression()
+    elif method == "rf":
+        model = RandomForestRegressor(
+            n_estimators=kwargs["rf_n_estimators"], max_depth=kwargs["rf_max_depth"]
+        )
+    elif method == "krr":
+        model = KernelRidge(alpha=kwargs["krr_alpha"], kernel=kwargs["krr_kernel"])
 
-    for y in y_values:
-        current_score = compute_score(y)
+    model = model.fit(x, y)
+    return model
 
-        if current_score < constant:
-            min_y = min(min_y, y)
-            max_y = max(max_y, y)
 
-    return min_y, max_y
+def calculate_coverage_probability(
+    y, sim, set_min: np.ndarray, set_max: np.ndarray
+) -> np.ndarray:
+    prob_coverage = np.zeros(y.shape[0])
+    for j in range(y.shape[0]):
+        y_random = y[j] + sim.gen_noise(N=10000)
+        prob_coverage[j] = np.mean((y_random >= set_min[j]) & (y_random <=  set_max[j]))
+    return prob_coverage
