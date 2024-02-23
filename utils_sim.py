@@ -91,8 +91,10 @@ gen_y_signal_2 = (
 )
 
 
-def split_conformal_inference_abs_score(x_test, y_test, predictor, score_func, x_eval):
-    qq = score_quantile(x_test, y_test, predictor, score_func)
+def split_conformal_inference_abs_score(
+    x_calib, y_calib, predictor, score_func, x_eval
+):
+    qq = score_quantile(x_calib, y_calib, predictor, score_func)
 
     y_new_pred = predictor(x_eval)
 

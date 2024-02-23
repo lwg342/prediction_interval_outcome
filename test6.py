@@ -26,3 +26,4 @@ conformal_score = compute_score(
     sim.y_conformal_pred, sim.yl_conformal, sim.yu_conformal, option="all"
 )
 # %%
+conformal_score

@@ -17,7 +17,7 @@ sim = SimData(
     scale=1.0,
     epsilon_distri="normal",
     std_eps=1,
-    cal_y_signal=lin_model,
+    # cal_y_signal=lin_model,
 )
 sim.generate_data()
 sim.calculate_weights_and_yd()
@@ -108,13 +108,14 @@ plt.plot(
     linestyle="dashed",
     label="prediction when we observe y",
 )
-plt.fill_between(
-    sim.x_eval[:, -1],
-    conformal_set[0],
-    conformal_set[1],
-    alpha=0.4,
-    label="conformal set",
-)
+plt.fill_between(sim.x_eval[:, -1], sim.models["yl"].predict(sim.x_eval),  sim.models["yu"].predict(sim.x_eval), alpha=0.5, label="prediction interval")
+# plt.fill_between(
+#     sim.x_eval[:, -1],
+#     conformal_set[0],
+#     conformal_set[1],
+#     alpha=0.4,
+#     label="conformal set",
+# )
 # plt.fill_between(
 #     sim.x_eval[:, -1],
 #     conformal_set_min,
@@ -122,20 +123,20 @@ plt.fill_between(
 #     alpha=0.5,
 #     label="conformal set min/max",
 # )
-plt.fill_between(
-    sim.x_eval[:, -1],
-    sim.y_eval_pred_obs - qq_obs,
-    sim.y_eval_pred_obs + qq_obs,
-    alpha=0.4,
-    label="conformal set when observe y",
-)
-plt.fill_between(
-    sim.x_eval[:, -1],
-    sim.y_eval_signal - 1.96 * sim.std_eps,
-    sim.y_eval_signal + 1.96 * sim.std_eps,
-    alpha=0.4,
-    label="conformal set y_signal -+ 1.96",
-)
+# plt.fill_between(
+#     sim.x_eval[:, -1],
+#     sim.y_eval_pred_obs - qq_obs,
+#     sim.y_eval_pred_obs + qq_obs,
+#     alpha=0.4,
+#     label="conformal set when observe y",
+# )
+# plt.fill_between(
+#     sim.x_eval[:, -1],
+#     sim.y_eval_signal - 1.96 * sim.std_eps,
+#     sim.y_eval_signal + 1.96 * sim.std_eps,
+#     alpha=0.4,
+#     label="conformal set y_signal -+ 1.96",
+# )
 
 plt.title(
     f"$N$={sim.N1}, $M$={sim.M}, $K$={sim.K}, $v_\epsilon$={sim.std_eps}, $b_1$={sim.interval_bias[0]}, $b_2$={sim.interval_bias[1]}, \n $x$_distri={sim.x_distri}, $\epsilon$_distri={sim.epsilon_distri}, df={sim.df}, scale = {sim.scale}"

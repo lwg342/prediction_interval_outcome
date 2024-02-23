@@ -1,14 +1,15 @@
 # %%
 import numpy as np
-from utils_dgp import SimData
+from utils_dgp import SimData, compute_score
 from wlpy.gist import current_time
 import matplotlib.pyplot as plt
+
 # %%
 sample_size = 2000
-sim = SimData(N1=sample_size, scale =2, epsilon_distri="normal", std_eps=1.0)
+sim = SimData(N1=sample_size, scale=2, epsilon_distri="normal", std_eps=0.1)
 sim.generate_data()
-weights = np.outer(np.linspace(0, 1, sim.M), np.ones(sim.N1))
-# weights = None
+# weights = np.outer(np.linspace(0, 1, sim.M), np.ones(sim.N1))
+weights = None
 sim.calculate_weights_and_yd(weights=weights)
 sim.split_data()
 
@@ -22,7 +23,7 @@ est_kwargs = {
     "tolerance": 1 / (sample_size) ** 0.7,
 }
 
-sim.fit_and_predict(**est_kwargs)
+sim.fit(**est_kwargs)
 
 sim.indices
 
@@ -97,4 +98,10 @@ plt.axhline(
 )
 plt.legend()
 # plt.savefig(f"simulation-results/{current_time()}-loss.pdf", bbox_inches="tight")
+# %%
+np.mean(
+    compute_score(
+        sim.models["yl"].predict(sim.x_test), sim.yu_test, sim.yl_test, option="all"
+    )
+)
 # %%

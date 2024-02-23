@@ -1,6 +1,7 @@
 import numpy as np
 from sklearn.model_selection import train_test_split
 from typing import Callable, List, Optional, Tuple
+from sklearn.model_selection import train_test_split
 
 
 def compute_score(y_test_pred, yu_test, yl_test, option="mean"):
@@ -173,6 +174,9 @@ class SimData:
         self.res_min, self.res_max = pred_error(
             self.y_eval_signal, self.y_eval_pred[self.indices]
         )
+        
+        self.yl_fit = self.models["yl"].predict(self.x_eval)
+        self.yu_fit = self.models["yu"].predict(self.x_eval)
 
     def get_intervals(self, y):
         """
