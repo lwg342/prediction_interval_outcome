@@ -8,7 +8,7 @@ from wlpy.gist import current_time
 current_dt = current_time()
 
 dgp_params = {
-    "N": 1000,
+    "N": 2000,
     "K": 200,
     "eps_std": 1.0,
     "pos": [0, 1, 2, 3, 4],
@@ -16,14 +16,18 @@ dgp_params = {
 }
 
 gen_eps = lambda N, eps_std, **kwargs: np.random.chisquare(3, N) - 3
-data = Data(gen_y_signal=default_gen_y_signal, dgp_params=dgp_params, gen_eps=gen_eps)
+
+data = Data(gen_y_signal=default_gen_y_signal, dgp_params=dgp_params)
 # data = Data(gen_y_signal=gen_y_signal_2, dgp_params=dgp_params)
 # %%
-from sklearn.linear_model import Lasso
+from sklearn.linear_model import Lasso, LinearRegression
 
+#  Fit models to the training data
 lasso_l = Lasso(alpha=0.2).fit(data.x_train, data.yl_train)
 lasso_u = Lasso(alpha=0.2).fit(data.x_train, data.yu_train)
 lasso_oracle = Lasso(alpha=0.2).fit(data.x_train, data.y_train)
+
+linear_reg = LinearRegression().fit(data.x_train[:, :5], data.y_train)
 
 krr_l = KernelRidge(kernel="rbf", alpha=2).fit(data.x_train, data.yl_train)
 krr_u = KernelRidge(kernel="rbf", alpha=2).fit(data.x_train, data.yu_train)
@@ -48,6 +52,9 @@ conf_lasso = combined_conformal_intervals(
 )
 # conf_rf = combined_conformal_intervals(data, rf_l, rf_u, rf_oracle, score_func_abs_val)
 np.quantile(score_func_abs_val(lasso_oracle.predict(data.x_test), data.y_test), 0.95)
+# np.quantile(
+#     score_func_abs_val(linear_reg.predict(data.x_test[:, :5]), data.y_test), 0.95
+# )
 
 # %%
 conf = conf_lasso
@@ -106,7 +113,7 @@ print(
 
 
 # %%
-def score_sq_brackets(yl, yu, yl_pred, yu_pred):
+def score_brackets(yl, yu, yl_pred, yu_pred):
     # return np.maximum(0,  yu - yu_pred) ** 2 + np.maximum(0, yl_pred- yl)**2
     # return np.maximum(
     #         np.maximum(0, yu - yu_pred) ** 2, np.maximum(0, yl_pred - yl) ** 2
@@ -117,7 +124,7 @@ def score_sq_brackets(yl, yu, yl_pred, yu_pred):
     # return np.maximum(yu_pred-yu,  yl-yl_pred)
 
 
-ss = score_sq_brackets(
+ss = score_brackets(
     data.yl_test,
     data.yu_test,
     lasso_l.predict(data.x_test),
@@ -141,7 +148,7 @@ for x in data.x_eval:
     lower_bound = None
     upper_bound = None
     for y in yrange:
-        score = score_sq_brackets(y, y, pred_l, pred_u)
+        score = score_brackets(y, y, pred_l, pred_u)
         if score <= qq:
             if lower_bound is None:
                 lower_bound = y

@@ -27,6 +27,15 @@ def calculate_proportion(samples, bounds):
     return proportion_within_bounds
 
 
+def calculate_proportion_interval(samples_lower, samples_upper, bounds):
+    lower_bound, upper_bound = bounds
+    within_bounds = np.logical_and(
+        samples_lower >= lower_bound, samples_upper <= upper_bound
+    )
+    proportion_within_bounds = np.mean(within_bounds, axis=0)
+    return proportion_within_bounds
+
+
 class Data:
     def __init__(
         self,
@@ -62,21 +71,20 @@ class Data:
             self.y_test,
         ) = train_test_split(self.x, self.yl, self.yu, self.y)
 
-        self.x_eval = self.gen_x(N=1000, K=self.K)
-        self.x_eval = self.x_eval[
-            np.argsort(np.linalg.norm(self.x_eval[:, self.pos], axis=1))
-        ]
-
+        # Compute the evaluation set
+        self.x_eval = np.linspace(self.x.min(), self.x.max(), 100).reshape(-1, 1)
         self.y_eval_signal = self.gen_y_signal(self.x_eval, **dgp_params)
         self.y_eval_samples = self.y_eval_signal + self.gen_eps(
-            N=[2000, self.y_eval_signal.shape[0]], eps_std=self.eps_std
+            N=[5000, self.y_eval_signal.shape[0]], eps_std=self.eps_std
         )
-
-        self.yl_sample, self.yu_sample = self.get_interval(
+        self.yl_eval_samples, self.yu_eval_samples = self.get_interval(
             self.y_eval_samples, **self.dgp_params
         )
-        self.yl_reg = self.yl_sample.mean(axis=0)
-        self.yu_reg = self.yu_sample.mean(axis=0)
+
+        self.yl_reg = self.yl_eval_samples.mean(axis=0)
+        self.yu_reg = self.yu_eval_samples.mean(axis=0)
+
+        # print("DGP params:", dgp_p    arams)
 
 
 score_func_abs_val = lambda y_obs, y_pred: np.abs(y_obs - y_pred)
@@ -140,3 +148,99 @@ def combined_conformal_intervals(
             x_eval=data.x_eval,
         ),
     }
+
+
+# %%
+
+
+def epanechnikov_kernel(u):
+    k = 0.75 * (1 - u**2)
+    return np.where(np.abs(u) <= 1, k, 0)
+
+
+def multivariate_epanechnikov_kernel(x, xi, h):
+    # x is the query point, xi is a point from data.x, and h is the bandwidth.
+    # Scale distances in each dimension
+    u = (x - xi) / h
+    # Compute the product of the Epanechnikov kernel for each dimension
+    kernel_values = epanechnikov_kernel(u)
+    return np.prod(kernel_values, axis=1)
+
+
+def compute_weights(weights_unnormalized):
+    weights = weights_unnormalized / np.sum(weights_unnormalized)
+    return weights
+
+
+def silvermans_rule(x):
+    """
+    Compute Silverman's rule of thumb for bandwidth selection in the multivariate case.
+
+    Parameters:
+    - data_x: numpy array of shape (N, d) where N is the number of samples and d is the dimensionality
+
+    Returns:
+    - h: the estimated bandwidth
+    """
+    N, d = x.shape
+    sigma = np.std(x, axis=0, ddof=1)  # Sample standard deviation for each dimension
+    h = (4 / ((d + 2) * N)) ** (1 / (d + 4)) * np.mean(sigma)
+    return h * 3
+
+
+def compute_weight_sum(yl, yu, weights, t0, t1):
+    # Create a boolean mask for the condition
+    mask = (t0 <= yl) & (yu <= t1)
+
+    # Compute the sum of weights for elements satisfying the condition
+    weight_sum = np.sum(weights[mask])
+
+    return weight_sum
+
+
+def eligible_t0t1(yl, yu, weights):
+    positive_weights_indices = weights > 0
+    t0 = np.sort(yl[positive_weights_indices])
+    t1 = np.sort(yu[positive_weights_indices])[::-1]
+    return t0, t1
+
+
+def find_t_hat(yl_train, yu_train, compute_weight_sum, weights, t0c, t1c):
+    interval_width = np.inf
+    optimal_t0, optimal_t1 = None, None
+    for t0_i in t0c:
+        for t1_i in t1c:
+            if t0_i < t1_i:
+                weight_sum = compute_weight_sum(
+                    yl_train[weights > 0],
+                    yu_train[weights > 0],
+                    weights[weights > 0],
+                    t0_i,
+                    t1_i,
+                )
+                if weight_sum >= 0.95 and t1_i - t0_i < interval_width:
+                    interval_width = t1_i - t0_i
+                    optimal_t0, optimal_t1 = t0_i, t1_i
+                if weight_sum < 0.95:
+                    break
+    pred_interval = [optimal_t0, optimal_t1]
+    return pred_interval
+
+
+def pred_interval(x, data):
+    pred_interval = np.zeros([2, x.shape[0]])
+    for i, x in enumerate(x):
+        weights = compute_weights(
+            multivariate_epanechnikov_kernel(
+                x,
+                data.x_train,
+                h=silvermans_rule(data.x_train),
+            )
+        )
+
+        t0c, t1c = eligible_t0t1(data.yl_train, data.yu_train, weights)
+
+        pred_interval[:, i] = find_t_hat(
+            data.yl_train, data.yu_train, compute_weight_sum, weights, t0c, t1c
+        )
+    return pred_interval
