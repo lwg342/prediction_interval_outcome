@@ -4,7 +4,7 @@ from sklearn.model_selection import train_test_split
 
 
 default_dgp_params = {
-    "N": 2000,
+    "N": 1000,
     "K": 1,
     "eps_std": 1.0,
     "pos": [0],

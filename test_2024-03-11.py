@@ -22,7 +22,7 @@ def get_interval(y, scale, **kwargs):
     # err1 = np.random.exponential(0.1, size=y.shape)
     # err2 = np.random.exponential(0.5, size=y.shape)
 
-    err1 = np.random.exponential(0.5, size=y.shape)
+    err1 = np.random.exponential(0.1, size=y.shape)
     err2 = np.random.exponential(2.0, size=y.shape)
 
     # err1 = 0.0
@@ -38,7 +38,7 @@ def get_interval(y, scale, **kwargs):
 
 
 dgp_params = {
-    "N": 2000,
+    "N": 1000,
     "K": 1,
     "eps_std": 1.0,
     "pos": [0],
@@ -48,7 +48,7 @@ gen_y_signal = lambda x, pos, **kwargs: np.inner(x[:, pos], np.ones(len(pos)))
 
 
 # %%
-nsim = 500
+nsim = 200
 n_eval = 50
 
 data_eval = Data(
@@ -63,15 +63,18 @@ yu_new = data_eval.yu_eval_samples
 oracle_interval = np.zeros([2, data_eval.x_eval.shape[0]])
 sample_size = 100000
 data_eval.gen_eval(n_eval=n_eval, sample_size=sample_size)
+eps_pm_kappa = np.array(
+    data_eval.get_interval(data_eval.eps_eval_samples[:, 0], **dgp_params)
+).T
 oracle_interval_0 = find_oracle_interval(
-    np.array(data_eval.get_interval(data_eval.eps_eval_samples[:, 0], **dgp_params)).T,
+    eps_pm_kappa,
     n=sample_size,
     alpha=0.05,
 )
 oracle_interval[0] = oracle_interval_0[0] + data_eval.y_eval_signal
 oracle_interval[1] = oracle_interval_0[1] + data_eval.y_eval_signal
 print(oracle_interval_0)
-
+print(np.quantile(eps_pm_kappa[:, 0], 0.025), np.quantile(eps_pm_kappa[:, 1], 0.975))
 # %%
 empirical_prob_rslt_cdf = np.zeros([nsim, n_eval])
 empirical_prob_rslt_cdf_before_conform = np.zeros([nsim, n_eval])
@@ -83,10 +86,14 @@ interval_width_rslt_cdf = np.zeros([nsim, n_eval])
 interval_width_rslt_cdf_before_conform = np.zeros([nsim, n_eval])
 interval_width_rslt_quantile = np.zeros([nsim, n_eval])
 
-candidate_bandwidth = np.linspace(0.5, 5.0, 10) * silvermans_rule(data_eval.x_train)
-h_cv = cv_bandwidth(data_eval, candidate_bandwidth, alpha=0.05)[0]
-print(f"Cross validated bandwidth: {h_cv}")
+candidate_bandwidth = 0.5*np.arange(30) * silvermans_rule(data_eval.x_train)
 
+h_cv, coverage_results = cv_bandwidth(data_eval, candidate_bandwidth, alpha=0.05)
+print(f"Cross validated bandwidth: {h_cv}, \n {coverage_results}")
+mse = np.mean((coverage_results - (1 - 0.05)) ** 2, axis=1)
+print(f"Mean squared error: {mse}")
+plt.plot(candidate_bandwidth, mse)
+# %% 
 for j in tqdm(range(nsim)):
     data = Data(
         get_interval=get_interval, gen_y_signal=gen_y_signal, dgp_params=dgp_params

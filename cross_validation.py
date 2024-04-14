@@ -1,5 +1,5 @@
 import numpy as np
-from utils_sim import * 
+from utils_sim import *
 
 
 def cv_bandwidth(data, candidate_bandwidth, nfolds=5, alpha=0.05):
@@ -9,7 +9,7 @@ def cv_bandwidth(data, candidate_bandwidth, nfolds=5, alpha=0.05):
     yu_folds = np.array_split(data.yu_train, nfolds)
     coverage_results = np.full((candidate_bandwidth.shape[0], nfolds), np.nan)
     for k, h in enumerate(candidate_bandwidth):
-        print(h)
+        # print(h)
         for i in range(nfolds):
             # Get the training data for the current fold
             x_train_cv = np.concatenate([x for j, x in enumerate(x_folds) if j != i])
@@ -38,10 +38,11 @@ def cv_bandwidth(data, candidate_bandwidth, nfolds=5, alpha=0.05):
             coverage_results[k, i] = coverage
 
     # Compute the average coverage probability for each h and find the one that is closest to 1-alpha
-    avg_coverage = np.mean(coverage_results, axis=1)
+
+    mse = np.mean((coverage_results - (1 - alpha)) ** 2, axis=1)
     # best_h = candidate_bandwidth[np.argmax(avg_coverage)]
-    best_h = candidate_bandwidth[np.argmin(np.abs(avg_coverage - (1 - alpha)))]
-    return best_h, avg_coverage
+    best_h = candidate_bandwidth[np.argmin(mse)]
+    return best_h, coverage_results
 
 
 if __name__ == "__main__":
