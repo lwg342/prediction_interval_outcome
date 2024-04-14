@@ -4,11 +4,11 @@ from sklearn.model_selection import train_test_split
 
 
 default_dgp_params = {
-    "N": 1000,
-    "K": 200,
-    "eps_std": 1,
-    "pos": [1, 2, 3, 4, 5],
-    "scale": 4.0,
+    "N": 2000,
+    "K": 1,
+    "eps_std": 1.0,
+    "pos": [0],
+    "scale": 1.0,
 }
 
 default_gen_x = lambda N, K, **kwargs: np.random.uniform(-2, 2, [N, K])
@@ -18,22 +18,6 @@ default_get_interval = lambda y, scale, **kwargs: (
     np.floor(y / scale) * scale,
     np.ceil(y / scale) * scale,
 )
-
-
-def calculate_proportion(samples, bounds):
-    lower_bound, upper_bound = bounds
-    within_bounds = np.logical_and(samples >= lower_bound, samples <= upper_bound)
-    proportion_within_bounds = np.mean(within_bounds, axis=0)
-    return proportion_within_bounds
-
-
-def calculate_proportion_interval(samples_lower, samples_upper, bounds):
-    lower_bound, upper_bound = bounds
-    within_bounds = np.logical_and(
-        samples_lower >= lower_bound, samples_upper <= upper_bound
-    )
-    proportion_within_bounds = np.mean(within_bounds, axis=0)
-    return proportion_within_bounds
 
 
 class Data:
@@ -72,11 +56,14 @@ class Data:
         ) = train_test_split(self.x, self.yl, self.yu, self.y)
 
         # Compute the evaluation set
-        self.x_eval = np.linspace(self.x.min(), self.x.max(), 100).reshape(-1, 1)
-        self.y_eval_signal = self.gen_y_signal(self.x_eval, **dgp_params)
-        self.y_eval_samples = self.y_eval_signal + self.gen_eps(
-            N=[5000, self.y_eval_signal.shape[0]], eps_std=self.eps_std
+
+    def gen_eval(self, n_eval=100, sample_size=5000):
+        self.x_eval = np.linspace(self.x.min(), self.x.max(), n_eval).reshape(-1, 1)
+        self.y_eval_signal = self.gen_y_signal(self.x_eval, **self.dgp_params)
+        self.eps_eval_samples = self.gen_eps(
+            N=[sample_size, self.y_eval_signal.shape[0]], eps_std=self.eps_std
         )
+        self.y_eval_samples = self.y_eval_signal + self.eps_eval_samples
         self.yl_eval_samples, self.yu_eval_samples = self.get_interval(
             self.y_eval_samples, **self.dgp_params
         )
@@ -185,7 +172,7 @@ def silvermans_rule(x):
     N, d = x.shape
     sigma = np.std(x, axis=0, ddof=1)  # Sample standard deviation for each dimension
     h = (4 / ((d + 2) * N)) ** (1 / (d + 4)) * np.mean(sigma)
-    return h * 3
+    return h
 
 
 def compute_weight_sum(yl, yu, weights, t0, t1):
@@ -227,20 +214,59 @@ def find_t_hat(yl_train, yu_train, compute_weight_sum, weights, t0c, t1c):
     return pred_interval
 
 
-def pred_interval(x, data):
+def pred_interval(x, x_train, yl_train, yu_train, h):
     pred_interval = np.zeros([2, x.shape[0]])
     for i, x in enumerate(x):
         weights = compute_weights(
             multivariate_epanechnikov_kernel(
                 x,
-                data.x_train,
-                h=silvermans_rule(data.x_train),
+                x_train,
+                h=h,
             )
         )
 
-        t0c, t1c = eligible_t0t1(data.yl_train, data.yu_train, weights)
+        t0c, t1c = eligible_t0t1(yl_train, yu_train, weights)
 
         pred_interval[:, i] = find_t_hat(
-            data.yl_train, data.yu_train, compute_weight_sum, weights, t0c, t1c
+            yl_train, yu_train, compute_weight_sum, weights, t0c, t1c
         )
     return pred_interval
+
+
+def find_oracle_interval(intvs, n, alpha):
+    sorted_intvs = intvs[np.argsort(intvs[:, 0])]
+    i = 0
+    optimal_width = np.inf
+    while i <= n * alpha:
+        # print(i)
+        sorted_upper = np.sort(sorted_intvs[i:, 1])[::-1]
+        # print(sorted_upper)
+
+        t1 = sorted_upper[np.floor(n * alpha - i).astype(int)]
+
+        width = t1 - sorted_intvs[i, 0]
+        if width < optimal_width:
+            optimal_width = width
+            optimal_interval = [
+                sorted_intvs[i, 0],
+                t1,
+            ]
+        i += 1
+    # print(optimal_interval)
+    return optimal_interval
+
+
+def calculate_proportion(samples, bounds):
+    lower_bound, upper_bound = bounds
+    within_bounds = np.logical_and(samples >= lower_bound, samples <= upper_bound)
+    proportion_within_bounds = np.mean(within_bounds, axis=0)
+    return proportion_within_bounds
+
+
+def calculate_proportion_interval(samples_lower, samples_upper, bounds):
+    lower_bound, upper_bound = bounds
+    within_bounds = np.logical_and(
+        samples_lower >= lower_bound, samples_upper <= upper_bound
+    )
+    proportion_within_bounds = np.mean(within_bounds, axis=0)
+    return proportion_within_bounds

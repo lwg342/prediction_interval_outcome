@@ -1,15 +1,16 @@
 # %%
 import numpy as np
-from utils_sim import *
-from wlpy.gist import current_time
 import matplotlib.pyplot as plt
 import seaborn as sns
 import statsmodels.api as sm
 from tqdm import tqdm
 
-sns.set_style("ticks")
+from utils_sim import *
+from wlpy.gist import current_time
+from cross_validation import cv_bandwidth
 
 cdt = current_time()
+sns.set_style("ticks")
 print(cdt)
 
 
@@ -19,13 +20,13 @@ def get_interval(y, scale, **kwargs):
     # err2 = np.random.chisquare(df=2, size=y.shape) * scale
 
     # err1 = np.random.exponential(0.1, size=y.shape)
-    # err2 = np.random.exponential(0.2, size=y.shape)
+    # err2 = np.random.exponential(0.5, size=y.shape)
 
-    # err1 = np.random.exponential(0.5, size=y.shape)
-    # err2 = np.random.exponential(1.5, size=y.shape)
+    err1 = np.random.exponential(0.5, size=y.shape)
+    err2 = np.random.exponential(2.0, size=y.shape)
 
-    err1 = 0.0
-    err2 = 0.0
+    # err1 = 0.0
+    # err2 = 0.0
 
     # err1 = np.random.uniform(0, 0.1, size=y.shape)
     # err2 = np.random.uniform(0, 4, size=y.shape)
@@ -37,7 +38,7 @@ def get_interval(y, scale, **kwargs):
 
 
 dgp_params = {
-    "N": 1000,
+    "N": 2000,
     "K": 1,
     "eps_std": 1.0,
     "pos": [0],
@@ -45,57 +46,72 @@ dgp_params = {
 }
 gen_y_signal = lambda x, pos, **kwargs: np.inner(x[:, pos], np.ones(len(pos)))
 
-data = Data(get_interval=get_interval, gen_y_signal=gen_y_signal, dgp_params=dgp_params)
-# %%
-
-plt.scatter(data.x.flatten(), data.y, alpha=0.7)
-plt.scatter(data.x.flatten(), data.yl, alpha=0.7)
-plt.scatter(data.x.flatten(), data.yu, alpha=0.7)
-
-weights = compute_weights(
-    multivariate_epanechnikov_kernel(
-        0,
-        data.x,
-        h=silvermans_rule(data.x),
-    )
-)
-
-t0c, t1c = eligible_t0t1(data.yl, data.yu, weights)
-print(t0c, t1c)
 
 # %%
-nsim = 100
-
-empirical_prob_rslt_cdf = np.zeros([nsim, data.x_eval.shape[0]])
-empirical_prob_rslt_cdf_before_conform = np.zeros([nsim, data.x_eval.shape[0]])
-empirical_prob_rslt_quantile = np.zeros([nsim, data.x_eval.shape[0]])
-empirical_prob_rslt_cdf_interval = np.zeros([nsim, data.x_eval.shape[0]])
-empirical_prob_rslt_cdf_interval_before_conform = np.zeros([nsim, data.x_eval.shape[0]])
-empirical_prob_rslt_cdf_interval_quantile = np.zeros([nsim, data.x_eval.shape[0]])
-interval_width_rslt_cdf = np.zeros([nsim, data.x_eval.shape[0]])
-interval_width_rslt_quantile = np.zeros([nsim, data.x_eval.shape[0]])
+nsim = 500
+n_eval = 50
 
 data_eval = Data(
     get_interval=get_interval, gen_y_signal=gen_y_signal, dgp_params=dgp_params
 )
+data_eval.gen_eval(n_eval)
 x_eval_fixed = data_eval.x_eval
 y_new = data_eval.y_eval_samples
 yl_new = data_eval.yl_eval_samples
 yu_new = data_eval.yu_eval_samples
+
+oracle_interval = np.zeros([2, data_eval.x_eval.shape[0]])
+sample_size = 100000
+data_eval.gen_eval(n_eval=n_eval, sample_size=sample_size)
+oracle_interval_0 = find_oracle_interval(
+    np.array(data_eval.get_interval(data_eval.eps_eval_samples[:, 0], **dgp_params)).T,
+    n=sample_size,
+    alpha=0.05,
+)
+oracle_interval[0] = oracle_interval_0[0] + data_eval.y_eval_signal
+oracle_interval[1] = oracle_interval_0[1] + data_eval.y_eval_signal
+print(oracle_interval_0)
+
+# %%
+empirical_prob_rslt_cdf = np.zeros([nsim, n_eval])
+empirical_prob_rslt_cdf_before_conform = np.zeros([nsim, n_eval])
+empirical_prob_rslt_quantile = np.zeros([nsim, n_eval])
+empirical_prob_rslt_cdf_interval = np.zeros([nsim, n_eval])
+empirical_prob_rslt_cdf_interval_before_conform = np.zeros([nsim, n_eval])
+empirical_prob_rslt_cdf_interval_quantile = np.zeros([nsim, n_eval])
+interval_width_rslt_cdf = np.zeros([nsim, n_eval])
+interval_width_rslt_cdf_before_conform = np.zeros([nsim, n_eval])
+interval_width_rslt_quantile = np.zeros([nsim, n_eval])
+
+candidate_bandwidth = np.linspace(0.5, 5.0, 10) * silvermans_rule(data_eval.x_train)
+h_cv = cv_bandwidth(data_eval, candidate_bandwidth, alpha=0.05)[0]
+print(f"Cross validated bandwidth: {h_cv}")
 
 for j in tqdm(range(nsim)):
     data = Data(
         get_interval=get_interval, gen_y_signal=gen_y_signal, dgp_params=dgp_params
     )
 
-    pred_interval_test = pred_interval(data.x_test, data)
+    pred_interval_test = pred_interval(
+        data.x_test,
+        data.x_train,
+        data.yl_train,
+        data.yu_train,
+        h=h_cv,
+    )
     scores = np.maximum(
         pred_interval_test[0] - data.yl_test, data.yu_test - pred_interval_test[1]
     )
     qq = np.quantile(scores, [0.95], method="higher")
-    print(qq)
+    # print(qq)
 
-    pred_interval_eval = pred_interval(x_eval_fixed, data)
+    pred_interval_eval = pred_interval(
+        x_eval_fixed,
+        data.x_train,
+        data.yl_train,
+        data.yu_train,
+        h=h_cv,
+    )
     conformal_interval_eval = np.array(
         [pred_interval_eval[0] - qq, pred_interval_eval[1]] + qq
     )
@@ -115,7 +131,7 @@ for j in tqdm(range(nsim)):
     scores = np.maximum(
         interval_quantile[0] - data.yl_test, data.yu_test - interval_quantile[1]
     )
-    qq = np.quantile(scores, [0.95])
+    qq = np.quantile(scores, [0.95], method="higher")
     pred_interval_eval_quantile = np.array(
         [
             quantile_025_model.predict(sm.add_constant(x_eval_fixed)),
@@ -145,57 +161,12 @@ for j in tqdm(range(nsim)):
     )
 
     interval_width_rslt_cdf[j] = conformal_interval_eval[1] - conformal_interval_eval[0]
+    interval_width_rslt_cdf_before_conform[j] = (
+        pred_interval_eval[1] - pred_interval_eval[0]
+    )
     interval_width_rslt_quantile[j] = (
         conformal_interval_eval_quantile[1] - conformal_interval_eval_quantile[0]
     )
-
-# %%
-
-
-def find_oracle_interval(intvs, n, alpha):
-    sorted_intvs = intvs[np.argsort(intvs[:, 0])]
-    i = 0
-    optimal_width = np.inf
-    while i <= n * alpha:
-        # print(i)
-        sorted_upper = np.sort(sorted_intvs[i:, 1])[::-1]
-        # print(sorted_upper)
-
-        t1 = sorted_upper[np.floor(n * alpha - i).astype(int)]
-
-        width = t1 - sorted_intvs[i, 0]
-        if width < optimal_width:
-            optimal_width = width
-            optimal_interval = [
-                sorted_intvs[i, 0],
-                t1,
-            ]
-        i += 1
-    # print(optimal_interval)
-    return optimal_interval
-
-
-n = 100000
-alpha = 0.05
-ee = np.random.normal(loc=0, scale=1, size=(n))
-intvs = np.array([ee, ee]).T
-
-
-# Find oracle interval
-oracle_interval = find_oracle_interval(intvs, n, alpha)
-print(oracle_interval, oracle_interval[1] - oracle_interval[0])
-# %%
-oracle_interval = np.zeros([2, data.x_eval.shape[0]])
-for k in range(data.x_eval.shape[0]):
-    intvs = np.array([yl_new[:, k], yu_new[:, k]]).T
-    oracle_interval[:, k] = find_oracle_interval(
-        intvs, n=data.yl_eval_samples.shape[0], alpha=0.05
-    )
-    print(k)
-plt.plot(x_eval_fixed, oracle_interval[1, :])
-plt.plot(x_eval_fixed, oracle_interval[0, :])
-
-
 # %%
 # Plot for coverage probability using the CDF method with adjusted marker properties
 plt.figure(figsize=(10, 6))
@@ -211,7 +182,7 @@ plt.plot(
     empirical_prob_rslt_cdf_interval_before_conform.mean(axis=0),
     markersize=5,
     alpha=0.7,
-    label="Coverage Probability of [YL, YU] (CDF Method)",
+    label="Coverage Probability of [YL, YU] (CDF Method) before conformalisation",
 )
 
 # Plot for coverage probability using the quantile method with adjustments
@@ -233,7 +204,7 @@ plt.plot(
     label="Coverage Probability of [YL, YU] (Oracle)",
 )
 
-
+plt.hlines(0.95, x_eval_fixed.min(), x_eval_fixed.max(), color="black", linestyle="--")
 plt.plot(
     x_eval_fixed,
     empirical_prob_rslt_cdf.mean(axis=0),
@@ -270,7 +241,13 @@ plt.plot(
     x_eval_fixed,
     interval_width_rslt_cdf.mean(axis=0),
     alpha=0.7,
-    label="Conformal Set (cdf)",
+    label="Conformal Set (CDF)",
+)
+plt.plot(
+    x_eval_fixed,
+    interval_width_rslt_cdf_before_conform.mean(axis=0),
+    alpha=0.7,
+    label="Conformal Set (CDF) before conformalisation",
 )
 
 plt.plot(
