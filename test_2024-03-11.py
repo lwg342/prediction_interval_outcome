@@ -19,14 +19,14 @@ def get_interval(y, scale, **kwargs):
     # err1 = np.random.chisquare(df=1, size=y.shape) * scale
     # err2 = np.random.chisquare(df=2, size=y.shape) * scale
 
-    # err1 = np.random.exponential(0.1, size=y.shape)
+    # err1 = np.random.exponential(0.5, size=y.shape)
     # err2 = np.random.exponential(0.5, size=y.shape)
 
-    err1 = np.random.exponential(0.1, size=y.shape)
-    err2 = np.random.exponential(2.0, size=y.shape)
+    # err1 = np.random.exponential(0.5, size=y.shape)
+    # err2 = np.random.exponential(2.0, size=y.shape)
 
-    # err1 = 0.0
-    # err2 = 0.0
+    err1 = 0.0
+    err2 = 0.0
 
     # err1 = np.random.uniform(0, 0.1, size=y.shape)
     # err2 = np.random.uniform(0, 4, size=y.shape)
@@ -46,11 +46,11 @@ dgp_params = {
 }
 gen_y_signal = lambda x, pos, **kwargs: np.inner(x[:, pos], np.ones(len(pos)))
 
-
-# %%
-nsim = 200
+nsim = 500
 n_eval = 50
 
+
+# %%
 data_eval = Data(
     get_interval=get_interval, gen_y_signal=gen_y_signal, dgp_params=dgp_params
 )
@@ -86,19 +86,24 @@ interval_width_rslt_cdf = np.zeros([nsim, n_eval])
 interval_width_rslt_cdf_before_conform = np.zeros([nsim, n_eval])
 interval_width_rslt_quantile = np.zeros([nsim, n_eval])
 
-candidate_bandwidth = 0.5*np.arange(30) * silvermans_rule(data_eval.x_train)
+candidate_bandwidth = 0.3 * np.arange(1, 10) * silvermans_rule(data_eval.x_train)
 
-h_cv, coverage_results = cv_bandwidth(data_eval, candidate_bandwidth, alpha=0.05)
-print(f"Cross validated bandwidth: {h_cv}, \n {coverage_results}")
+h_cv, coverage_results, _ = cv_bandwidth(data_eval, candidate_bandwidth, alpha=0.05)
+print(f"Cross validated bandwidth: {h_cv}")
 mse = np.mean((coverage_results - (1 - 0.05)) ** 2, axis=1)
 print(f"Mean squared error: {mse}")
 plt.plot(candidate_bandwidth, mse)
-# %% 
+# h_cv = 0.47
+# %%
 for j in tqdm(range(nsim)):
+
     data = Data(
         get_interval=get_interval, gen_y_signal=gen_y_signal, dgp_params=dgp_params
     )
 
+    candidate_bandwidth = 0.3 * np.arange(1, 10) * silvermans_rule(data.x_train)
+
+    h_cv, coverage_results, _ = cv_bandwidth(data, candidate_bandwidth, alpha=0.05)
     pred_interval_test = pred_interval(
         data.x_test,
         data.x_train,
@@ -289,4 +294,14 @@ plt.savefig(
 )  # Specifying a high resolution
 plt.show()
 print(cdt)
+
+
+# %%
+# compute the symmetric differen between two intervals
+def symmetric_difference(interval_1, interval_2):
+    return np.abs(interval_1[0] - interval_2[0]) + np.abs(interval_1[1] - interval_2[1])
+
+
+sym_diff= symmetric_difference(oracle_interval, pred_interval_eval)
+plt.plot(sym_diff)
 # %%

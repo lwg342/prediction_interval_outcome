@@ -8,8 +8,9 @@ def cv_bandwidth(data, candidate_bandwidth, nfolds=5, alpha=0.05):
     yl_folds = np.array_split(data.yl_train, nfolds)
     yu_folds = np.array_split(data.yu_train, nfolds)
     coverage_results = np.full((candidate_bandwidth.shape[0], nfolds), np.nan)
+    width_results = np.full((candidate_bandwidth.shape[0], nfolds), np.nan)
     for k, h in enumerate(candidate_bandwidth):
-        # print(h)
+        print(h, end="\r")
         for i in range(nfolds):
             # Get the training data for the current fold
             x_train_cv = np.concatenate([x for j, x in enumerate(x_folds) if j != i])
@@ -36,13 +37,31 @@ def cv_bandwidth(data, candidate_bandwidth, nfolds=5, alpha=0.05):
 
             # Collect the coverage in a list for h, and i
             coverage_results[k, i] = coverage
-
+            width_results[k, i] = np.mean(
+                pred_interval_at_fold[1] - pred_interval_at_fold[0]
+            )
     # Compute the average coverage probability for each h and find the one that is closest to 1-alpha
 
     mse = np.mean((coverage_results - (1 - alpha)) ** 2, axis=1)
-    # best_h = candidate_bandwidth[np.argmax(avg_coverage)]
-    best_h = candidate_bandwidth[np.argmin(mse)]
-    return best_h, coverage_results
+    mae = np.mean(np.abs(coverage_results - (1 - alpha)), axis=1)
+    width_score = np.mean(width_results, axis=1)
+    # print(f"Mean squared error: {mse}")
+    # print(f"Mean width: {width_score}")
+
+    best_h_width = candidate_bandwidth[np.argmin(width_score)]
+    best_h_mse = candidate_bandwidth[np.argmin(mse)]
+    best_h_mae = candidate_bandwidth[np.argmin(mae)]
+
+    # find the best bandwidth that has smallest rank in mse and width_score
+    rank_mse = np.argsort(np.argsort(mse))
+    rank_width = np.argsort(np.argsort(width_score))
+    rank = rank_mse + rank_width
+    print(rank)
+    
+    print(
+        f"Best bandwidth by width: {best_h_width}\nBest bandwidth by mse: {best_h_mse}\nBest bandwidth by mae: {best_h_mae}\nBest bandwidth by rank: {candidate_bandwidth[np.argmin(rank)]}"
+    )
+    return best_h_mse, coverage_results, width_score
 
 
 if __name__ == "__main__":
@@ -72,6 +91,9 @@ if __name__ == "__main__":
     data.x_train.shape
 
     # h = silvermans_rule(data.x_train)
-    candidate_bandwidth = np.linspace(0.5, 5.0, 10) * silvermans_rule(data.x_train)
-
-    best_h, avg_coverage = cv_bandwidth(data, candidate_bandwidth, nfolds=5)
+    candidate_bandwidth = 0.2 * np.arange(1, 20) * silvermans_rule(data.x_train)
+    alpha = 0.05
+    best_h, coverage_results, width_score = cv_bandwidth(
+        data, candidate_bandwidth, nfolds=5, alpha=alpha
+    )
+    print(f"Best bandwidth: {best_h}")
