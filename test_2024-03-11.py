@@ -5,7 +5,7 @@ import seaborn as sns
 import statsmodels.api as sm
 from tqdm import tqdm
 
-from utils_sim import *
+from utils import *
 from wlpy.gist import current_time
 from cross_validation import cv_bandwidth
 
@@ -51,7 +51,7 @@ n_eval = 50
 
 
 # %%
-data_eval = Data(
+data_eval = SimData(
     get_interval=get_interval, gen_y_signal=gen_y_signal, dgp_params=dgp_params
 )
 data_eval.gen_eval(n_eval)
@@ -97,7 +97,7 @@ plt.plot(candidate_bandwidth, mse)
 # %%
 for j in tqdm(range(nsim)):
 
-    data = Data(
+    data = SimData(
         get_interval=get_interval, gen_y_signal=gen_y_signal, dgp_params=dgp_params
     )
 

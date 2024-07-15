@@ -7,7 +7,8 @@ from cross_validation import cv_bandwidth
 from sklearn.kernel_ridge import KernelRidge
 
 # read file from wage-data/cleaned_data.csv
-df = pd.read_csv("wage-data/cleaned_data.csv")
+df = pd.read_csv("wage-data/cleaned_data_netwk.csv")
+# df = pd.read_csv("wage-data/cleaned_data.csv")
 df
 
 
