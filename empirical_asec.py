@@ -14,23 +14,26 @@ def analyze_and_plot(
     yu_col="log_upper_bound",
     alpha=0.05,
     edu_fixed=14,
-    exp_fixed=15,
-    edu_variable=np.array([10, 12, 14, 16, 18]),
+    exp_fixed=20,
+    edu_variable=np.array([12, 14, 16, 18]),
     exp_variable=np.array([10, 11, 12, 13, 14, 16, 17, 18, 19]),
     conformal_method="local",
 ):
     data = EmpiricalData(df, x_cols, yl_col, yu_col)
 
+    h_silverman = np.array(
+        [silvermans_rule(data.x[:, [0]]) + 0.1, silvermans_rule(data.x[:, [1]])]
+    )
     # Bandwidth selection
-    candidate_bandwidth = 0.3 * np.arange(1, 5) * silvermans_rule(data.x)
-    # h_cv, coverage_results, _ = cv_bandwidth(
-    #     data, candidate_bandwidth, alpha=0.1, nfolds=5
+    # candidate_bandwidth = np.array(
+    # [h_silverman * 0.3 * j for j in np.linspace(1, 10, num=10)]
     # )
 
-    # h_cv = np.array(
-    # [silvermans_rule(data.x[:, [0]]) + 0.1, silvermans_rule(data.x[:, [1]])]
+    # h_cv, coverage_results, _ = cv_bandwidth(
+    #     data, candidate_bandwidth, alpha=alpha, nfolds=5
     # )
-    h_cv = np.array([0.1, 1.6])
+
+    h_cv = np.array([0.1, 2.5])
     print(f"The bandwidth is {h_cv}")
 
     exp_arr = np.full_like(edu_variable, exp_fixed)
@@ -117,14 +120,19 @@ def analyze_and_plot(
     }
     return data, result_pred, result_conformal
 
-def visualize_prediction(result, transform, label, color, variable="edu", offset=0, marker="o"):
+
+def visualize_prediction(
+    result, transform, label, color, variable="edu", offset=0, marker="o"
+):
     x = result[variable][0]
     yl = transform(result[variable][1][0])
     yu = transform(result[variable][1][1])
-    
+
     # Plot the line segments with labels
-    plt.plot([], [], color=color, marker=marker, linestyle='-', linewidth=1, label=label)  # Empty plot for the legend entry
-    
+    plt.plot(
+        [], [], color=color, marker=marker, linestyle="-", linewidth=1, label=label
+    )  # Empty plot for the legend entry
+
     for xi, yli, yui in zip(x + offset, yl, yu):
         plt.plot([xi, xi], [yli, yui], color=color, linestyle="-", linewidth=1)
         plt.plot(
@@ -198,8 +206,8 @@ visualize_prediction(
     transform,
     f"Prediction with exact number data",
     "tab:green",
-    offset=0, 
-    marker="s"
+    offset=0,
+    marker="s",
 )
 # visualize_prediction(
 #     result_imputed,
@@ -213,7 +221,7 @@ visualize_prediction(
     f"Prediction with exact number data and imputed data",
     "tab:purple",
     offset=0.2,
-    marker="x"
+    marker="x",
 )
 
 
@@ -225,43 +233,3 @@ plt.title(
 )
 plt.savefig("conformal_intervals_empirical_edu.pdf")
 
-
-# %%
-Iu = df["upper_bound"].to_numpy()
-plt.hist(Iu, bins=500)
-# %%
-plt.hist(Iu, bins=500)
-plt.xlim(0, 500000)
-# %%
-sum(Iu == 400000)
-# %%
-# Local conditions
-
-
-def chack_locality(arr, val1, val2):
-    return (arr[:, 0] == val1) & (val2[0] <= arr[:, 1]) & (arr[:, 1] < val2[1])
-
-
-start = 0
-end = 50
-num_intervals = 10  # Adjust this to the desired number of intervals
-points = np.linspace(start, end, num_intervals + 1)
-exp_intvl = [(points[i], points[i + 1]) for i in range(len(points) - 1)]
-
-
-dt = EmpiricalData(df, ["Edu", "Experience"], "log_lower_bound", "log_upper_bound")
-
-local_condition = [
-    lambda x: chack_locality(x, i, j)
-    for i in np.array([10, 11, 12, 14, 16, 17, 18])
-    for j in [(10, 15)]
-]
-for j in range(10):
-    if local_condition[j](dt.x_test)[0]:
-        print(j)
-
-sum(local_condition[0](dt.x_test))
-dt.x_test[((local_condition[0](dt.x_test)))]
-
-dt.x_test[local_condition[2](dt.x_test)]
-# %%
