@@ -1,15 +1,16 @@
 import numpy as np
-from utils_sim import *
+from utils import *
+import tqdm
 
 
 def cv_bandwidth(data, candidate_bandwidth, nfolds=5, alpha=0.05):
     # Equally split the training data into nfolds
-    x_folds = np.array_split(data.x_train, nfolds)
-    yl_folds = np.array_split(data.yl_train, nfolds)
-    yu_folds = np.array_split(data.yu_train, nfolds)
+    x_folds = np.array_split(data.x_train.to_numpy(), nfolds)
+    yl_folds = np.array_split(data.yl_train.to_numpy(), nfolds)
+    yu_folds = np.array_split(data.yu_train.to_numpy(), nfolds)
     coverage_results = np.full((candidate_bandwidth.shape[0], nfolds), np.nan)
     width_results = np.full((candidate_bandwidth.shape[0], nfolds), np.nan)
-    for k, h in enumerate(candidate_bandwidth):
+    for k, h in tqdm.tqdm(enumerate(candidate_bandwidth)):
         print(h, end="\r")
         for i in range(nfolds):
             # Get the training data for the current fold
@@ -26,7 +27,7 @@ def cv_bandwidth(data, candidate_bandwidth, nfolds=5, alpha=0.05):
 
             # Find the optimal t0 and t1 for the current fold
             pred_interval_at_fold = pred_interval(
-                x_val_cv, x_train_cv, yl_train_cv, yu_train_cv, h
+                x_val_cv, x_train_cv, yl_train_cv, yu_train_cv, h, alpha=alpha
             )
 
             # Compute the empirical coverage probability of the pred_interval
@@ -57,7 +58,7 @@ def cv_bandwidth(data, candidate_bandwidth, nfolds=5, alpha=0.05):
     rank_width = np.argsort(np.argsort(width_score))
     rank = rank_mse + rank_width
     print(rank)
-    
+
     print(
         f"Best bandwidth by width: {best_h_width}\nBest bandwidth by mse: {best_h_mse}\nBest bandwidth by mae: {best_h_mae}\nBest bandwidth by rank: {candidate_bandwidth[np.argmin(rank)]}"
     )
@@ -87,7 +88,7 @@ if __name__ == "__main__":
 
         return (y - err1, y + err2)
 
-    data = Data(get_interval=get_interval)
+    data = SimData(get_interval=get_interval)
     data.x_train.shape
 
     # h = silvermans_rule(data.x_train)
