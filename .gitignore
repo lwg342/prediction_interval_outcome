@@ -6,6 +6,8 @@
 
 * /*
 tex/**
+wage-data/**
+tex/** */
 .vscode/*
 .DS_Store
 

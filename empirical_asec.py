@@ -21,19 +21,9 @@ def analyze_and_plot(
 ):
     data = EmpiricalData(df, x_cols, yl_col, yu_col)
 
-    h_silverman = np.array(
-        [silvermans_rule(data.x[:, [0]]) + 0.1, silvermans_rule(data.x[:, [1]])]
-    )
-    # Bandwidth selection
-    # candidate_bandwidth = np.array(
-    # [h_silverman * 0.3 * j for j in np.linspace(1, 10, num=10)]
-    # )
+    h_cv = cvBandwidthSelection(alpha, data)
 
-    # h_cv, coverage_results, _ = cv_bandwidth(
-    #     data, candidate_bandwidth, alpha=alpha, nfolds=5
-    # )
-
-    h_cv = np.array([0.1, 2.5])
+    # h_cv = np.array([1.1, 2.5])
     print(f"The bandwidth is {h_cv}")
 
     exp_arr = np.full_like(edu_variable, exp_fixed)
@@ -120,6 +110,21 @@ def analyze_and_plot(
     }
     return data, result_pred, result_conformal
 
+def cvBandwidthSelection(alpha, data):
+    h_silverman = np.array(
+        [silvermans_rule(data.x[:, [0]]) + 0.1, silvermans_rule(data.x[:, [1]])]
+    )
+    # Bandwidth selection
+    candidate_bandwidth = np.array(
+    [h_silverman * 0.2 * j for j in np.linspace(1, 10, num=10)]
+    )
+# 
+    h_cv, coverage_results, _ = cv_bandwidth(
+        data, candidate_bandwidth, alpha=alpha, nfolds=5
+    )
+    
+    return h_cv
+
 
 def visualize_prediction(
     result, transform, label, color, variable="edu", offset=0, marker="o"
@@ -154,7 +159,7 @@ df["log_upper_bound"].describe()
 # )
 # %%
 
-alpha = 0.1
+alpha = 0.2
 dt, result_all, result_all_conformal = analyze_and_plot(
     df,
     alpha=alpha,
@@ -233,3 +238,5 @@ plt.title(
 )
 plt.savefig("conformal_intervals_empirical_edu.pdf")
 
+
+# %%
