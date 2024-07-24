@@ -7,21 +7,6 @@ from cross_validation import cv_bandwidth
 from sklearn.kernel_ridge import KernelRidge
 
 
-class EmpiricalData:
-    def __init__(self, df):
-        self.x = df[["Edu", "Exp"]].to_numpy()
-        self.yl = df["Log_Weekly_Lower"].to_numpy()
-        self.yu = df["Log_Weekly_Upper"].to_numpy()
-        (
-            self.x_train,
-            self.x_test,
-            self.yl_train,
-            self.yl_test,
-            self.yu_train,
-            self.yu_test,
-        ) = train_test_split(self.x, self.yl, self.yu)
-
-
 def analyze_and_plot(df, dataset_label):
     data = EmpiricalData(df)
 
@@ -55,7 +40,7 @@ def analyze_and_plot(df, dataset_label):
         h=h_cv,
     )
     conformal_interval_eval_edu = np.array(
-        [pred_interval_eval[0] - qq, pred_interval_eval[1]] + qq
+        [pred_interval_eval[0] - qq, pred_interval_eval[1] + qq]
     )
 
     # Visualization for Experience
@@ -113,15 +98,17 @@ plt.plot(
     plot_result_netwk["edu"][1][1],
     label=f"Netwk - Conformal Lower bound",
 )
-    
+
 
 plt.xlabel("Education")
 plt.ylabel("Predicted earnings")
 plt.legend()
 plt.savefig("conformal_intervals_empirical_edu.pdf")
-plt.title(f"Conformal Prediction Intervals when Experience is fixed at {plot_result_all['edu'][2]}")
+plt.title(
+    f"Conformal Prediction Intervals when Experience is fixed at {plot_result_all['edu'][2]}"
+)
 
-# %% 
+# %%
 
 
 plt.plot(
@@ -150,5 +137,7 @@ plt.xlabel("Experience")
 plt.ylabel("Predicted earnings")
 plt.legend()
 plt.savefig("conformal_intervals_empirical_exp.pdf")
-plt.title(f"Conformal Prediction Intervals when Education is fixed at {plot_result_all['exp'][2]}")
+plt.title(
+    f"Conformal Prediction Intervals when Education is fixed at {plot_result_all['exp'][2]}"
+)
 # %%

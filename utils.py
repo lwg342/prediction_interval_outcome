@@ -78,9 +78,9 @@ class EmpiricalData:
     def __init__(
         self,
         df,
-        x_cols=["Edu", "Experience"],
-        yl_col="log_lower_bound",
-        yu_col="log_upper_bound",
+        x_cols=["Education", "Experience"],
+        yl_col="Log_lower_bound",
+        yu_col="Log_upper_bound",
     ):
         self.x = df[x_cols].to_numpy()
         self.yl = df[yl_col].to_numpy()
