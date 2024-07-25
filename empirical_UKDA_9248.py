@@ -20,7 +20,7 @@ def analyze_and_plot(
     edu_variable=np.array([11, 12, 14, 16, 18]),
     exp_variable=np.array([10, 11, 12, 13, 14, 16, 17, 18, 19]),
     conformal_method="local",
-    bandwidth=np.array([0.5, 4.0]),
+    bandwidth=np.array([0.5, 3.0]),
 ):
     data = EmpiricalData(df, x_cols, yl_col, yu_col)
 
@@ -172,7 +172,7 @@ df["Log_upper_bound"].describe()
 # )
 # %%
 
-alpha = 0.1
+alpha = 0.5
 dt, result_all, result_all_conformal = analyze_and_plot(
     df,
     alpha=alpha,

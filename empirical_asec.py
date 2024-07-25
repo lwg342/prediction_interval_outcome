@@ -45,7 +45,7 @@ def analyze_and_plot(
         qq = np.quantile(scores, [1 - alpha], method="higher")
 
     if conformal_method == "local":
-        qq = np.zeros_like(edu_variable)
+        qq = np.zeros(edu_variable.shape)
         for j, edu in enumerate(edu_variable):
             condition = (
                 (data.df[x_cols[0]] == edu)
@@ -164,7 +164,7 @@ df["Log_upper_bound"].describe()
 # )
 # %%
 
-alpha = 0.1
+alpha = 0.5
 dt, result_all, result_all_conformal = analyze_and_plot(
     df,
     alpha=alpha,
@@ -187,12 +187,13 @@ transform = np.array
 
 plt.figure()
 
-# visualize_prediction(
-#     result_all,
-#     transform,
-#     f"Prediction with exact number and range data",
-#     "tab:blue",
-# )
+visualize_prediction(
+    result_all,
+    transform,
+    f"Prediction with exact number and range data",
+    "tab:blue",
+    offset=-0.1,
+)
 visualize_prediction(
     result_all_conformal,
     transform,
@@ -244,4 +245,4 @@ plt.title(
 plt.savefig("conformal_intervals_empirical_edu.pdf")
 
 
-    # %%
+# %%
