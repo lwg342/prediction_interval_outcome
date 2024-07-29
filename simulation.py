@@ -7,7 +7,7 @@ from tqdm import tqdm
 
 from utils import *
 from wlpy.gist import current_time
-from cross_validation import cv_bandwidth
+from utils.cross_validation import cv_bandwidth
 
 cdt = current_time()
 sns.set_style("ticks")
