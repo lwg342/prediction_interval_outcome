@@ -5,8 +5,10 @@ import matplotlib.pyplot as plt
 import utils
 from utils.cross_validation import cv_bandwidth
 from utils.empirical import visualize_prediction, analyze_and_plot
+import os
 
-np.random.seed(42)
+random_seed = 43
+np.random.seed(random_seed)
 
 filename = "apsp_jd23_eul_pwta22.tab"
 df = pd.read_csv(f"wage-data/clean_{filename}")
@@ -15,7 +17,7 @@ df["Log_upper_bound"].describe()
 
 # %%
 
-alpha = 0.1
+alpha = 0.9
 dt, results = analyze_and_plot(
     df,
     alpha=alpha,
@@ -95,10 +97,50 @@ plt.title(
 )
 plt.savefig("conformal_intervals_empirical_edu.pdf")
 # %%
-# Save the results in a pickle file
+results["random seed"] = random_seed
+df_results = pd.DataFrame(
+    {
+        "Education": results["edu"],
+        "Experience": [results["experience"]] * len(results["edu"]),
+        "Alpha": [results["alpha"]] * len(results["edu"]),
+        "Prediction Lower Bound": results["prediction interval"][0],
+        "Prediction Upper Bound": results["prediction interval"][1],
+        "Conformal Prediction Lower Bound": results["conformal prediction interval"][0],
+        "Conformal Prediction Upper Bound": results["conformal prediction interval"][1],
+        "Conformal Correction": results["conformal correction"],
+        "Prediction Lower Bound with Exact Number": results_exact[
+            "prediction interval"
+        ][0],
+        "Prediction Upper Bound with Exact Number": results_exact[
+            "prediction interval"
+        ][1],
+        "Conformal Prediction Lower Bound with Exact Number": results_exact[
+            "conformal prediction interval"
+        ][0],
+        "Conformal Prediction Upper Bound with Exact Number": results_exact[
+            "conformal prediction interval"
+        ][1],
+        "Conformal Correction": results_exact["conformal correction"],
+        "Kernel Regression Lower": results["kernel regression yl"],
+        "Kernel Regression Upper": results["kernel regression yu"],
+        "Random Seed": [results["random seed"]] * len(results["edu"]),
+    }
+)
+
+
+# File path for the CSV
+
+result_file_path = "UKDA-9248-results.csv"
+
+if not os.path.isfile(result_file_path):
+    df_results.to_csv(result_file_path, mode="w", header=True, index=False)
+else:
+    df_results.to_csv(result_file_path, mode="a", header=False, index=False)
+df_results.to_csv(result_file_path, index=False, header=False, mode="a")
 
 # %%
 print(np.exp(results["kernel regression yl"]))
 print(np.exp(results["kernel regression yu"]))
+
 
 # %%
