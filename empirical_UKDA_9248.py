@@ -130,17 +130,12 @@ df_results = pd.DataFrame(
 
 # File path for the CSV
 
-result_file_path = "UKDA-9248-results.csv"
+result_file_path = "UKDA_9248_results.csv"
 
 if not os.path.isfile(result_file_path):
     df_results.to_csv(result_file_path, mode="w", header=True, index=False)
 else:
     df_results.to_csv(result_file_path, mode="a", header=False, index=False)
 df_results.to_csv(result_file_path, index=False, header=False, mode="a")
-
-# %%
-print(np.exp(results["kernel regression yl"]))
-print(np.exp(results["kernel regression yu"]))
-
 
 # %%

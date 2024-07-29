@@ -15,7 +15,7 @@ df["Log_upper_bound"].describe()
 random_seed = 43
 np.random.seed(random_seed)
 
-alpha = 0.25
+alpha = 0.75
 
 dt, results = analyze_and_plot(
     df,
@@ -152,7 +152,7 @@ df_results = pd.DataFrame(
 
 # File path for the CSV
 
-result_file_path = "ASEC-results.csv"
+result_file_path = "ASEC_results.csv"
 
 if not os.path.isfile(result_file_path):
     df_results.to_csv(result_file_path, mode="w", header=True, index=False)
