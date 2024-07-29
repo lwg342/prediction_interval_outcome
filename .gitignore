@@ -1,5 +1,6 @@
 # ------ Tempelate starts ------#	
 # ignore .DS_Store and subfolders	
+*.csv
 *.pdf
 *.eps 
 *.png 
