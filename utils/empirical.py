@@ -114,6 +114,7 @@ def analyze_and_plot(
         data.yl_train,
         data.yu_train,
         h=h_cv,
+        alpha=alpha,
     )
     conformal_interval_eval_edu = np.array(
         [pred_interval_eval_edu[0] - qq, pred_interval_eval_edu[1] + qq]

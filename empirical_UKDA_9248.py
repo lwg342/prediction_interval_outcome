@@ -17,7 +17,7 @@ df["Log_upper_bound"].describe()
 
 # %%
 
-alpha = 0.25
+alpha = 0.5
 dt, results = analyze_and_plot(
     df,
     alpha=alpha,
