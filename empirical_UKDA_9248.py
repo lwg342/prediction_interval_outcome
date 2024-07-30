@@ -17,7 +17,7 @@ df["Log_upper_bound"].describe()
 
 # %%
 
-alpha = 0.9
+alpha = 0.25
 dt, results = analyze_and_plot(
     df,
     alpha=alpha,
@@ -40,7 +40,7 @@ visualize_prediction(
     transform,
     f"Prediction with exact number and range data",
     "tab:blue",
-    offset=-0.4,
+    offset=-0.3,
 )
 visualize_prediction(
     results,
@@ -48,7 +48,7 @@ visualize_prediction(
     transform,
     f"Conformal prediction with exact number and range data",
     "tab:red",
-    offset=-0.2,
+    offset=-0.1,
 )
 print(
     np.exp(results["conformal prediction interval"][0]),
@@ -61,6 +61,7 @@ visualize_prediction(
     transform,
     f"Prediction with exact number data",
     "tab:orange",
+    offset=0.1,
 )
 visualize_prediction(
     results_exact,
@@ -68,7 +69,7 @@ visualize_prediction(
     transform,
     f"Conformal prediction with exact number data",
     "tab:green",
-    offset=0.2,
+    offset=0.3,
     marker="s",
 )
 print(

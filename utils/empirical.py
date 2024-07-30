@@ -43,7 +43,7 @@ def analyze_and_plot(
     x_cols=["Education", "Experience"],
     yl_col="Log_lower_bound",
     yu_col="Log_upper_bound",
-    alpha=0.05,
+    alpha=0.1,
     edu_fixed=14,
     exp_fixed=15,
     edu_variable=np.array([12, 14, 16, 18]),
