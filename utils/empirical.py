@@ -138,7 +138,9 @@ def analyze_and_plot(
     return data, results
 
 
-def visualize_prediction(result, key, transform, label, color, offset=0, marker="o"):
+def visualize_prediction(
+    result, key, transform, label, color, offset=0, marker="o", markersize=5
+):
     x = result["edu"]
     yl = transform(result[key][0])
     yu = transform(result[key][1])
@@ -151,8 +153,8 @@ def visualize_prediction(result, key, transform, label, color, offset=0, marker=
     for xi, yli, yui in zip(x + offset, yl, yu):
         plt.plot([xi, xi], [yli, yui], color=color, linestyle="-", linewidth=1)
         plt.plot(
-            xi, yli, marker=marker, markersize=4, color=color
+            xi, yli, marker=marker, markersize=markersize, color=color
         )  # Symbol at lower endpoint
         plt.plot(
-            xi, yui, marker=marker, markersize=4, color=color
+            xi, yui, marker=marker, markersize=markersize, color=color
         )  # Symbol at upper endpoint

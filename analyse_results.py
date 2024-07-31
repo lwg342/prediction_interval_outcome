@@ -2,7 +2,7 @@
 import pandas as pd
 import numpy as np
 
-data = pd.read_csv("UKDA_9248_results.csv")
+data = pd.read_csv("UKDA_9248_results.csv").drop_duplicates()
 data
 # %%
 columns_to_include = [
@@ -21,7 +21,7 @@ for col in [
     "Conformal Prediction Lower Bound",
     "Conformal Prediction Upper Bound",
 ]:
-    data[col] = data[col].apply(lambda x: np.exp(x))
+    data[col] = data[col].apply(lambda x: f"{round(np.exp(x))}")
 
 # %%
 import pandas as pd
@@ -35,7 +35,7 @@ def append_rows(df, col_lower, col_upper, label):
     for _, row in df.iterrows():
         rows.append(
             {
-                "Alpha": row["Alpha"],
+                "Alpha": f"{row['Alpha']:.2f}",
                 "Education": row["Education"],
                 "Bounds": f"({row[col_lower]}, {row[col_upper]})",
                 "Method": label,
@@ -51,7 +51,7 @@ append_rows(
     data,
     "Conformal Prediction Lower Bound",
     "Conformal Prediction Upper Bound",
-    "Conformal Prediction",
+    "Conf. Prediction",
 )
 
 # Convert the list of rows to a new DataFrame
@@ -59,6 +59,8 @@ results_formatted = pd.DataFrame(rows).pivot(
     index=["Alpha", "Method"], columns="Education", values="Bounds"
 )
 
-# Print the new DataFrame
-results_formatted
+latex_table = results_formatted.to_latex(multicolumn=True, multirow=True, label="tab:lfs", caption="Conformal prediction and prediction intervals for annual income, by education level and the speficied alpha level.")
+
+# %%
+print(latex_table)
 # %%
