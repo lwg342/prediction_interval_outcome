@@ -16,57 +16,73 @@ df["Log_upper_bound"].describe()
 # %%
 random_seed = 19260817
 np.random.seed(random_seed)
-alpha = 0.9
-dt, results = analyze_and_plot(
-    df,
-    alpha=alpha,
-    conformal_method="local",
-)
+# alpha = 0.9
+# exp_fixed = 15
+bandwidth = np.array(
+    [0.48453814, 2.3811055]
+)  # This is from a cross-validation run before this implementation
+for alpha in np.array([0.1, 0.25, 0.5, 0.75, 0.9]):
+    for exp_fixed in np.array([10, 15, 20, 25, 30]):
+        print(f"alpha: {alpha}, exp_fixed: {exp_fixed}")
+        dt, results = analyze_and_plot(
+            df,
+            alpha=alpha,
+            exp_fixed=exp_fixed,
+            conformal_method="local",
+            bandwidth=bandwidth,
+        )
 
-dt_exact, results_exact = analyze_and_plot(
-    df.loc[~df["range_indicator"]], alpha=alpha, conformal_method="local"
-)
-# %%
-results["random seed"] = random_seed
-df_results = pd.DataFrame(
-    {
-        "Education": results["edu"],
-        "Experience": [results["experience"]] * len(results["edu"]),
-        "Alpha": [results["alpha"]] * len(results["edu"]),
-        "Prediction Lower Bound": results["prediction interval"][0],
-        "Prediction Upper Bound": results["prediction interval"][1],
-        "Conformal Prediction Lower Bound": results["conformal prediction interval"][0],
-        "Conformal Prediction Upper Bound": results["conformal prediction interval"][1],
-        "Conformal Correction": results["conformal correction"],
-        "Prediction Lower Bound with Exact Number": results_exact[
-            "prediction interval"
-        ][0],
-        "Prediction Upper Bound with Exact Number": results_exact[
-            "prediction interval"
-        ][1],
-        "Conformal Prediction Lower Bound with Exact Number": results_exact[
-            "conformal prediction interval"
-        ][0],
-        "Conformal Prediction Upper Bound with Exact Number": results_exact[
-            "conformal prediction interval"
-        ][1],
-        "Conformal Correction": results_exact["conformal correction"],
-        "Kernel Regression Lower": results["kernel regression yl"],
-        "Kernel Regression Upper": results["kernel regression yu"],
-        "Random Seed": [results["random seed"]] * len(results["edu"]),
-    }
-)
+        dt_exact, results_exact = analyze_and_plot(
+            df.loc[~df["range_indicator"]],
+            alpha=alpha,
+            exp_fixed=exp_fixed,
+            conformal_method="local",
+            bandwidth=bandwidth,
+        )
 
+        results["random seed"] = random_seed
+        df_results = pd.DataFrame(
+            {
+                "Education": results["edu"],
+                "Experience": [results["experience"]] * len(results["edu"]),
+                "Alpha": [results["alpha"]] * len(results["edu"]),
+                "Prediction Lower Bound": results["prediction interval"][0],
+                "Prediction Upper Bound": results["prediction interval"][1],
+                "Conformal Prediction Lower Bound": results[
+                    "conformal prediction interval"
+                ][0],
+                "Conformal Prediction Upper Bound": results[
+                    "conformal prediction interval"
+                ][1],
+                "Conformal Correction": results["conformal correction"],
+                "Prediction Lower Bound with Exact Number": results_exact[
+                    "prediction interval"
+                ][0],
+                "Prediction Upper Bound with Exact Number": results_exact[
+                    "prediction interval"
+                ][1],
+                "Conformal Prediction Lower Bound with Exact Number": results_exact[
+                    "conformal prediction interval"
+                ][0],
+                "Conformal Prediction Upper Bound with Exact Number": results_exact[
+                    "conformal prediction interval"
+                ][1],
+                "Conformal Correction": results_exact["conformal correction"],
+                "Kernel Regression Lower": results["kernel regression yl"],
+                "Kernel Regression Upper": results["kernel regression yu"],
+                "Random Seed": [results["random seed"]] * len(results["edu"]),
+            }
+        )
 
-# File path for the CSV
+        # File path for the CSV
 
-result_file_path = "UKDA_9248_results.csv"
+        result_file_path = "UKDA_9248_results.csv"
 
-if not os.path.isfile(result_file_path):
-    df_results.to_csv(result_file_path, mode="w", header=True, index=False)
-else:
-    df_results.to_csv(result_file_path, mode="a", header=False, index=False)
-df_results.to_csv(result_file_path, index=False, header=False, mode="a")
+        if not os.path.isfile(result_file_path):
+            df_results.to_csv(result_file_path, mode="w", header=True, index=False)
+        else:
+            df_results.to_csv(result_file_path, mode="a", header=False, index=False)
+
 
 # %%
 
