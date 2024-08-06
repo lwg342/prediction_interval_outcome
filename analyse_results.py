@@ -3,6 +3,7 @@ import pandas as pd
 import numpy as np
 
 data = pd.read_csv("UKDA_9248_results.csv").drop_duplicates()
+# data = pd.read_csv("ASEC_results.csv").drop_duplicates()
 data
 # %%
 columns_to_include = [

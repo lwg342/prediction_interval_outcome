@@ -57,7 +57,6 @@ def analyze_and_plot(
         h_cv = cvBandwidthSelection(alpha, data)
     else:
         h_cv = bandwidth
-    # h_cv = np.array([1.1, 2.5])
     print(f"The bandwidth is {h_cv}")
 
     exp_arr = np.full_like(edu_variable, exp_fixed)
@@ -83,7 +82,7 @@ def analyze_and_plot(
                 & (data.df[x_cols[1]] < (exp_fixed + 2))
                 & (data.df["is_test"] == 1)
             )
-            print(j, edu, sum(condition))
+            # print(j, edu, sum(condition))
 
             x_test_locl = data.df.loc[condition, x_cols].to_numpy()
             yl_test_local = data.df.loc[condition, yl_col].to_numpy()
@@ -101,12 +100,12 @@ def analyze_and_plot(
                 pred_interval_test[0] - yl_test_local,
                 yu_test_locl - pred_interval_test[1],
             )
-            plt.figure()
-            plt.hist(scores, bins=100)
-            plt.show()
+            # plt.figure()
+            # plt.hist(scores, bins=100)
+            # plt.show()
             qvalue = np.quantile(scores, 1 - alpha)
             qq[j] = qvalue
-    print(qq)
+    # print(qq)
 
     pred_interval_eval_edu = pred_interval(
         x_eval_fixed,

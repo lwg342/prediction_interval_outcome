@@ -18,6 +18,8 @@ alpha = 0.9
 dt, results = analyze_and_plot(
     df,
     alpha=alpha,
+    # bandwidth = None
+    # [!] bandwidth = None for running cross validation
 )
 
 dt_exact, results_exact = analyze_and_plot(
