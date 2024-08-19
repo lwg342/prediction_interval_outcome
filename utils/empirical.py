@@ -106,7 +106,10 @@ def analyze_and_plot(
             qvalue = np.quantile(scores, 1 - alpha)
             qq[j] = qvalue
     # print(qq)
-
+    if conformal_method == "none":
+        qq = 0
+        
+    print("x_eval_fixed", x_eval_fixed)
     pred_interval_eval_edu = pred_interval(
         x_eval_fixed,
         data.x_train,

@@ -7,28 +7,32 @@ from utils.cross_validation import cv_bandwidth
 from utils.empirical import visualize_prediction, analyze_and_plot
 import os
 
+current_date = pd.Timestamp.now().strftime("%Y%m%d")
 
 filename = "apsp_jd23_eul_pwta22.tab"
 df = pd.read_csv(f"wage-data/clean_{filename}")
 
+result_file_path = "UKDA_9248_results.csv"
 df["Log_upper_bound"].describe()
 
 # %%
 random_seed = 19260817
-np.random.seed(random_seed)
 # alpha = 0.9
 # exp_fixed = 15
 bandwidth = np.array(
     [0.48453814, 2.3811055]
 )  # This is from a cross-validation run before this implementation
-for alpha in np.array([0.1, 0.25, 0.5, 0.75, 0.9]):
-    for exp_fixed in np.array([10, 15, 20, 25, 30]):
+for alpha in np.array([0.75]):
+    # for alpha in np.array([0.5]):
+    for exp_fixed in np.array([15]):
+        # for exp_fixed in np.array([15, 30]):
+        np.random.seed(random_seed)
         print(f"alpha: {alpha}, exp_fixed: {exp_fixed}")
         dt, results = analyze_and_plot(
             df,
             alpha=alpha,
             exp_fixed=exp_fixed,
-            conformal_method="local",
+            conformal_method="local", 
             bandwidth=bandwidth,
         )
 
@@ -71,12 +75,14 @@ for alpha in np.array([0.1, 0.25, 0.5, 0.75, 0.9]):
                 "Kernel Regression Lower": results["kernel regression yl"],
                 "Kernel Regression Upper": results["kernel regression yu"],
                 "Random Seed": [results["random seed"]] * len(results["edu"]),
+                "Date": [current_date] * len(results["edu"]),
+                "Experience Bandwidth": [bandwidth[1]] * len(results["edu"]),
             }
         )
 
         # File path for the CSV
 
-        result_file_path = "UKDA_9248_results.csv"
+     
 
         if not os.path.isfile(result_file_path):
             df_results.to_csv(result_file_path, mode="w", header=True, index=False)
@@ -161,4 +167,25 @@ plt.title(
 cdt = pd.Timestamp.now().strftime("%Y%m%d_%H%M%S")
 plt.savefig(f"empirical_edu_lfs_{alpha}_{cdt}.pdf", bbox_inches="tight")
 
+# %%
+# [-] Check for why some prediction results are the same
+random_seed = 19260817
+# alpha = 0.9
+# exp_fixed = 15
+bandwidth = np.array(
+    [0.48453814, 2.3811055]
+)  # This is from a cross-validation run before this implementation
+for alpha in np.array([0.75]):
+    # for alpha in np.array([0.5]):
+    for exp_fixed in np.array([20]):
+        # for exp_fixed in np.array([15, 30]):
+        np.random.seed(random_seed)
+        print(f"alpha: {alpha}, exp_fixed: {exp_fixed}")
+        dt, results = analyze_and_plot(
+            df,
+            alpha=alpha,
+            exp_fixed=exp_fixed,
+            conformal_method="none", 
+            bandwidth=bandwidth,
+        )
 # %%
