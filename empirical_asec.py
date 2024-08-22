@@ -112,23 +112,23 @@ df_results = pd.DataFrame(
             "conformal prediction interval"
         ][1],
         "Conformal Correction": results_exact["conformal correction"],
-        "Prediction Lower Bound with Exact and Imputed Number": results_imputed[
-            "prediction interval"
-        ][0],
-        "Prediction Upper Bound with Exact and Imputed Number": results_imputed[
-            "prediction interval"
-        ][1],
-        "Conformal Prediction Lower Bound with Exact and Imputed Number": results_imputed[
-            "conformal prediction interval"
-        ][
-            0
-        ],
-        "Conformal Prediction Upper Bound with Exact and Imputed Number": results_imputed[
-            "conformal prediction interval"
-        ][
-            1
-        ],
-        "Conformal Correction": results_imputed["conformal correction"],
+        # "Prediction Lower Bound with Exact and Imputed Number": results_imputed[
+        #     "prediction interval"
+        # ][0],
+        # "Prediction Upper Bound with Exact and Imputed Number": results_imputed[
+        #     "prediction interval"
+        # ][1],
+        # "Conformal Prediction Lower Bound with Exact and Imputed Number": results_imputed[
+        #     "conformal prediction interval"
+        # ][
+        #     0
+        # ],
+        # "Conformal Prediction Upper Bound with Exact and Imputed Number": results_imputed[
+        #     "conformal prediction interval"
+        # ][
+        #     1
+        # ],
+        # "Conformal Correction": results_imputed["conformal correction"],
         "Kernel Regression Lower": results["kernel regression yl"],
         "Kernel Regression Upper": results["kernel regression yu"],
         "Random Seed": [results["random seed"]] * len(results["edu"]),
