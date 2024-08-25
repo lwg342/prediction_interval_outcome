@@ -17,25 +17,17 @@ class EmpiricalData:
         self.x = df[x_cols].to_numpy()
         self.yl = df[yl_col].to_numpy()
         self.yu = df[yu_col].to_numpy()
-        (
-            self.x_train,
-            self.x_test,
-            self.yl_train,
-            self.yl_test,
-            self.yu_train,
-            self.yu_test,
-        ) = train_test_split(df[x_cols], df[yl_col], df[yu_col])
-        df.loc[:, "is_test"] = df.index.isin(self.x_test.index).copy()
+        self.df_train, self.df_test = train_test_split(df)
+        df.loc[:, "is_test"] = df.index.isin(self.df_test.index).copy()
         self.df = df
 
-    def create_local_test_samples(self, local_condition):
-        self.local_condition = local_condition
+        self.x_train = self.df_train[x_cols].to_numpy()
+        self.yl_train = self.df_train[yl_col].to_numpy()
+        self.yu_train = self.df_train[yu_col].to_numpy()
 
-        for j, condition_j in enumerate(local_condition):
-            where_j = condition_j(self.x_test)
-            self.x_local_test[j] = self.x_test[where_j]
-            self.yl_local_test[j] = self.yl_test[where_j]
-            self.yu_local_test[j] = self.yu_test[where_j]
+        self.x_test = self.df_test[x_cols].to_numpy()
+        self.yl_test = self.df_test[yl_col].to_numpy()
+        self.yu_test = self.df_test[yu_col].to_numpy()
 
 
 def analyze_and_plot(
@@ -46,7 +38,7 @@ def analyze_and_plot(
     alpha=0.1,
     edu_fixed=14,
     exp_fixed=15,
-    edu_variable=np.array([12, 14, 16, 18]),
+    edu_variable=np.array([11, 12, 14, 16, 18]),
     exp_variable=np.array([10, 11, 12, 13, 14, 16, 17, 18, 19]),
     conformal_method="local",
     bandwidth=np.array([0.1, 1.7]),
@@ -78,8 +70,8 @@ def analyze_and_plot(
         for j, edu in enumerate(edu_variable):
             condition = (
                 (data.df[x_cols[0]] == edu)
-                & (data.df[x_cols[1]] >= (exp_fixed - 2))
-                & (data.df[x_cols[1]] < (exp_fixed + 2))
+                & (data.df[x_cols[1]] >= (exp_fixed - 5))
+                & (data.df[x_cols[1]] < (exp_fixed + 5))
                 & (data.df["is_test"] == 1)
             )
             # print(j, edu, sum(condition))
@@ -108,8 +100,8 @@ def analyze_and_plot(
     # print(qq)
     if conformal_method == "none":
         qq = 0
-        
-    print("x_eval_fixed", x_eval_fixed)
+
+    # print("x_eval_fixed", x_eval_fixed)
     pred_interval_eval_edu = pred_interval(
         x_eval_fixed,
         data.x_train,

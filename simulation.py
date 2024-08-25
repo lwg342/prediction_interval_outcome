@@ -8,6 +8,7 @@ from tqdm import tqdm
 from utils import *
 from wlpy.gist import current_time
 from utils.cross_validation import cv_bandwidth
+from utils.simulation import SimData
 
 cdt = current_time()
 sns.set_style("ticks")

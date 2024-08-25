@@ -2,17 +2,19 @@
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
-import utils
-from utils.cross_validation import cv_bandwidth
 from utils.empirical import visualize_prediction, analyze_and_plot
 import os
+from sklearn.model_selection import train_test_split
 
-current_date = pd.Timestamp.now().strftime("%Y%m%d")
 
+current_date = pd.Timestamp.now().strftime("%Y-%m-%d")
 filename = "apsp_jd23_eul_pwta22.tab"
-df = pd.read_csv(f"wage-data/clean_{filename}")
 
-result_file_path = "UKDA_9248_results.csv"
+data = pd.read_csv(f"wage-data/clean_{filename}")
+df = data[~data["Is_holdout"]]
+df_holdout = data[data["Is_holdout"]]
+
+result_file_path = f"UKDA_9248_results_{current_date}.csv"
 df["Log_upper_bound"].describe()
 
 # %%
@@ -22,22 +24,20 @@ random_seed = 19260817
 bandwidth = np.array(
     [0.48453814, 2.3811055]
 )  # This is from a cross-validation run before this implementation
-for alpha in np.array([0.75]):
-    # for alpha in np.array([0.5]):
-    for exp_fixed in np.array([15]):
-        # for exp_fixed in np.array([15, 30]):
+for alpha in np.array([0.1,0.5,0.9]):
+    for exp_fixed in np.array([10,20]):
         np.random.seed(random_seed)
         print(f"alpha: {alpha}, exp_fixed: {exp_fixed}")
         dt, results = analyze_and_plot(
             df,
             alpha=alpha,
             exp_fixed=exp_fixed,
-            conformal_method="local", 
+            conformal_method="local",
             bandwidth=bandwidth,
         )
 
         dt_exact, results_exact = analyze_and_plot(
-            df.loc[~df["range_indicator"]],
+            df.loc[~df["Range_report"]],
             alpha=alpha,
             exp_fixed=exp_fixed,
             conformal_method="local",
@@ -82,90 +82,13 @@ for alpha in np.array([0.75]):
 
         # File path for the CSV
 
-     
-
         if not os.path.isfile(result_file_path):
             df_results.to_csv(result_file_path, mode="w", header=True, index=False)
         else:
             df_results.to_csv(result_file_path, mode="a", header=False, index=False)
 
 
-# %%
 
-transform = np.array
-
-
-plt.figure()
-
-visualize_prediction(
-    results,
-    "prediction interval",
-    transform,
-    f"Prediction (exact and range)",
-    "tab:blue",
-    offset=-0.3,
-)
-visualize_prediction(
-    results,
-    "conformal prediction interval",
-    transform,
-    f"Conf. prediction (exact and range)",
-    "tab:red",
-    offset=-0.1,
-)
-print(
-    np.exp(results["conformal prediction interval"][0]),
-    np.exp(results["conformal prediction interval"][1]),
-)
-
-visualize_prediction(
-    results_exact,
-    "prediction interval",
-    transform,
-    f"Prediction (exact only)",
-    "tab:orange",
-    marker="s",
-    offset=0.1,
-)
-visualize_prediction(
-    results_exact,
-    "conformal prediction interval",
-    transform,
-    f"Conf. prediction (exact only)",
-    "tab:green",
-    offset=0.3,
-    marker="s",
-)
-print(
-    np.exp(results_exact["conformal prediction interval"][0]),
-    np.exp(results_exact["conformal prediction interval"][1]),
-)
-plt.xlabel("Education")
-plt.ylabel("Predicted log earnings")
-
-
-plt.plot(
-    results["edu"],
-    results["kernel regression yl"],
-    label="Mean of lower bound",
-    marker="x",
-)
-plt.plot(
-    results["edu"],
-    results["kernel regression yu"],
-    label="Mean of upper bound",
-    marker="x",
-)
-# plt.legend(loc="center right", bbox_to_anchor=(-0.5, -0.1), ncol=1)
-# Place the legend outside the plot area
-# plt.legend(loc='upper left', bbox_to_anchor=(1, 1))
-
-plt.tight_layout()
-plt.title(
-    f"Conformal Prediction Intervals when Experience is fixed at {results['experience']}"
-)
-cdt = pd.Timestamp.now().strftime("%Y%m%d_%H%M%S")
-plt.savefig(f"empirical_edu_lfs_{alpha}_{cdt}.pdf", bbox_inches="tight")
 
 # %%
 # [-] Check for why some prediction results are the same
@@ -185,7 +108,59 @@ for alpha in np.array([0.75]):
             df,
             alpha=alpha,
             exp_fixed=exp_fixed,
-            conformal_method="none", 
+            conformal_method="none",
             bandwidth=bandwidth,
         )
+# %%
+# [-] Hold-out dataset coverage
+
+
+def local_cond(df, edu, exp_l, exp_u):
+    cond = (
+        (df["Education"] == edu)
+        & (df["Experience"] >= exp_l)
+        & (df["Experience"] <= exp_u)
+    )
+    return cond
+
+
+edu = 12
+local_cond = local_cond(df_holdout, edu,6, 14)
+print(sum(local_cond) * 0.9)
+print(
+    sum(
+        (
+            df_holdout[local_cond].Log_lower_bound.to_numpy()
+            >= df_results.loc[
+                df_results["Education"] == edu, "Conformal Prediction Lower Bound"
+            ].to_numpy()
+        )
+        & (
+            df_holdout[local_cond].Log_upper_bound.to_numpy()
+            <= df_results.loc[
+                df_results["Education"] == edu, "Conformal Prediction Upper Bound"
+            ].to_numpy()
+        )
+    )
+)
+print(
+    sum(
+        (
+            df_holdout[local_cond].Log_lower_bound.to_numpy()
+            >= df_results.loc[
+                df_results["Education"] == edu,
+                "Conformal Prediction Lower Bound with Exact Number",
+            ].to_numpy()
+        )
+        & (
+            df_holdout[local_cond].Log_upper_bound.to_numpy()
+            <= df_results.loc[
+                df_results["Education"] == edu,
+                "Conformal Prediction Upper Bound with Exact Number",
+            ].to_numpy()
+        )
+    )
+)
+
+
 # %%

@@ -4,10 +4,10 @@ import numpy as np
 
 # filename= "UKDA_9248_results_2024-08-14"
 filename = "asec23pub_results_20240819"
-data = pd.read_csv(f"{filename}.csv").drop_duplicates(
+results = pd.read_csv(f"{filename}.csv").drop_duplicates(
     subset=["Education", "Alpha", "Experience"], keep="first"
 )
-data
+results
 # %%
 columns_to_include = [
     "Alpha",
@@ -21,7 +21,7 @@ columns_to_include = [
     "Conformal Prediction Lower Bound with Exact Number",
     "Conformal Prediction Upper Bound with Exact Number",
 ]
-selected_data = data[columns_to_include]
+selected_data = results[columns_to_include]
 
 for col in [
     "Prediction Lower Bound",
@@ -33,7 +33,7 @@ for col in [
     "Conformal Prediction Lower Bound with Exact Number",
     "Conformal Prediction Upper Bound with Exact Number",
 ]:
-    data[col] = data[col].apply(lambda x: f"{round(np.exp(x))}")
+    results[col] = results[col].apply(lambda x: f"{round(np.exp(x))}")
     # data[col] = data[col].apply(lambda x: x)
 
 
@@ -59,24 +59,24 @@ def append_rows(df, col_lower, col_upper, label):
 
 
 # Append rows for 'Prediction'
-append_rows(data, "Prediction Lower Bound", "Prediction Upper Bound", "P")
+append_rows(results, "Prediction Lower Bound", "Prediction Upper Bound", "P")
 
 # Append rows for 'Conformal Prediction'
 append_rows(
-    data,
+    results,
     "Conformal Prediction Lower Bound",
     "Conformal Prediction Upper Bound",
     "CP",
 )
 
 append_rows(
-    data,
+    results,
     "Prediction Lower Bound with Exact Number",
     "Prediction Upper Bound with Exact Number",
     "PW",
 )
 append_rows(
-    data,
+    results,
     "Conformal Prediction Lower Bound with Exact Number",
     "Conformal Prediction Upper Bound with Exact Number",
     "CPW",
@@ -97,3 +97,80 @@ latex_table = results_formatted.to_latex(
 # %%
 print(latex_table)
 # %%
+# [-] Plots
+import pandas as pd
+
+transform = np.array
+
+
+plt.figure()
+
+visualize_prediction(
+    results,
+    "prediction interval",
+    transform,
+    f"Prediction (exact and range)",
+    "tab:blue",
+    offset=-0.3,
+)
+visualize_prediction(
+    results,
+    "conformal prediction interval",
+    transform,
+    f"Conf. prediction (exact and range)",
+    "tab:red",
+    offset=-0.1,
+)
+print(
+    np.exp(results["conformal prediction interval"][0]),
+    np.exp(results["conformal prediction interval"][1]),
+)
+
+visualize_prediction(
+    results_exact,
+    "prediction interval",
+    transform,
+    f"Prediction (exact only)",
+    "tab:orange",
+    marker="s",
+    offset=0.1,
+)
+visualize_prediction(
+    results_exact,
+    "conformal prediction interval",
+    transform,
+    f"Conf. prediction (exact only)",
+    "tab:green",
+    offset=0.3,
+    marker="s",
+)
+print(
+    np.exp(results_exact["conformal prediction interval"][0]),
+    np.exp(results_exact["conformal prediction interval"][1]),
+)
+plt.xlabel("Education")
+plt.ylabel("Predicted log earnings")
+
+
+plt.plot(
+    results["edu"],
+    results["kernel regression yl"],
+    label="Mean of lower bound",
+    marker="x",
+)
+plt.plot(
+    results["edu"],
+    results["kernel regression yu"],
+    label="Mean of upper bound",
+    marker="x",
+)
+# plt.legend(loc="center right", bbox_to_anchor=(-0.5, -0.1), ncol=1)
+# Place the legend outside the plot area
+# plt.legend(loc='upper left', bbox_to_anchor=(1, 1))
+
+plt.tight_layout()
+plt.title(
+    f"Conformal Prediction Intervals when Experience is fixed at {results['experience']}"
+)
+cdt = pd.Timestamp.now().strftime("%Y%m%d_%H%M%S")
+plt.savefig(f"empirical_edu_lfs_{alpha}_{cdt}.pdf", bbox_inches="tight")
