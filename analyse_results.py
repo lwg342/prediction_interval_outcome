@@ -7,18 +7,24 @@ from utils.empirical import visualize_prediction
 dataset = "LFS"
 
 if dataset == "LFS":  # 🇬🇧 UKDA_9248 data
-    results = pd.read_csv("UKDA_9248_results_2024-08-23.csv")
+    results = pd.read_csv("UKDA_9248_results_2024-08-27.csv")
     data = pd.read_csv("wage-data/clean_apsp_jd23_eul_pwta22.tab")
 if dataset == "CPS":  # 🇺🇸 US CPS data
-    results = pd.read_csv("asec23pub_results_20240819.csv")
+    results = pd.read_csv("asec23pub_results_2024-08-26.csv")
     data = pd.read_csv("wage-data/clean_data_asec_pppub23.csv")
 
 results = results.drop_duplicates(
-    subset=["Education", "Alpha", "Experience"], keep="first"
+    subset=["Education", "Alpha", "Experience", "Random Seed"], keep="first"
 )
 
 df_holdout = data[data["Is_holdout"]]
+numeric_columns = results.select_dtypes(include="number").columns.tolist()
 
+# Group by the relevant columns and calculate the mean of numeric columns
+results_mean = results.groupby(["Education", "Alpha", "Experience"], as_index=False)[
+    numeric_columns
+].mean()
+results_mean = results.loc[results["Education"] != 11]
 results
 # %%
 columns_to_include = [
@@ -33,7 +39,7 @@ columns_to_include = [
     "Conformal Prediction Lower Bound with Exact Number",
     "Conformal Prediction Upper Bound with Exact Number",
 ]
-selected_data = results[columns_to_include]
+selected_data = results_[columns_to_include]
 
 for col in [
     "Prediction Lower Bound",
@@ -45,7 +51,7 @@ for col in [
     "Conformal Prediction Lower Bound with Exact Number",
     "Conformal Prediction Upper Bound with Exact Number",
 ]:
-    results[col] = results[col].apply(lambda x: f"{round(np.exp(x))}")
+    results_[col] = results_[col].apply(lambda x: (np.exp(x)))
     # data[col] = data[col].apply(lambda x: x)
 
 
@@ -62,10 +68,10 @@ def append_rows(df, col_lower, col_upper, label):
     for _, row in df.iterrows():
         rows.append(
             {
-                "Alpha": f"{row['Alpha']:.2f}",
+                "Alpha": f"{row['Alpha']:.1f}",
                 "Experience": row["Experience"],
                 "Education": row["Education"],
-                "Bounds": f"({row[col_lower]}, {row[col_upper]})",
+                "Bounds": f"({int(row[col_lower])}, {int(row[col_upper])})",
                 "Method": label,
             }
         )
@@ -95,7 +101,12 @@ append_rows(
     "CPW",
 )
 # Convert the list of rows to a new DataFrame
-results_formatted = pd.DataFrame(rows).pivot(
+df = pd.DataFrame(rows)
+
+df.Education = df["Education"].astype(int)
+df.Experience = df["Experience"].astype(int)
+df.Bounds = df["Bounds"].astype(str)
+results_formatted = df.pivot(
     index=["Alpha", "Method", "Experience"], columns="Education", values="Bounds"
 )
 
@@ -113,61 +124,49 @@ print(latex_table)
 
 
 def compute_coverage(row):
+    def is_exact(df, dataset):
+        if dataset == "LFS":
+            return df["BANDG"] < 0
+        elif dataset == "CPS":
+            return df["I_ERNVAL"] == 0
+        return pd.Series([False] * len(df))
+
+    def calculate_coverage(df, lower_bound, upper_bound):
+        lower_cov = df["Lower_bound"] >= lower_bound
+        upper_cov = df["Upper_bound"] <= upper_bound
+        return sum(lower_cov & upper_cov) / len(df) if len(df) > 0 else 0
+
     selection = (
         (df_holdout["Education"] == row["Education"])
-        & (df_holdout["Experience"] >= row["Experience"] - 3)
-        & (df_holdout["Experience"] <= row["Experience"] + 3)
+        & (df_holdout["Experience"] >= row["Experience"] - 5)
+        & (df_holdout["Experience"] <= row["Experience"] + 5)
     )
-    if_exact = df_holdout["BANDG"] < 0
+
+    if_exact = is_exact(df_holdout, dataset)
 
     df_temp = df_holdout[selection]
     df_temp_only_exact = df_holdout[selection & if_exact]
 
-    # [-] coverage of both exact numbers and intervals
-    lower_cov = df_temp["Lower_bound"] >= float(row["Conformal Prediction Lower Bound"])
-    upper_cov = df_temp["Upper_bound"] <= float(row["Conformal Prediction Upper Bound"])
-
-    lower_cov_with_exact = df_temp["Lower_bound"] >= float(
-        row["Conformal Prediction Lower Bound with Exact Number"]
+    row["Coverage_conformal"] = calculate_coverage(
+        df_temp,
+        float(row["Conformal Prediction Lower Bound"]),
+        float(row["Conformal Prediction Upper Bound"]),
     )
-    upper_cov_with_exact = df_temp["Upper_bound"] <= float(
-        row["Conformal Prediction Upper Bound with Exact Number"]
+    row["Coverage_conformal_with_exact_number"] = calculate_coverage(
+        df_temp,
+        float(row["Conformal Prediction Lower Bound with Exact Number"]),
+        float(row["Conformal Prediction Upper Bound with Exact Number"]),
     )
-
-    # [-] coverage of exactly reported
-    lower_cov_of_exact = df_temp_only_exact["Lower_bound"] >= float(
-        row["Conformal Prediction Lower Bound"]
+    row["Coverage_conformal_of_exact"] = calculate_coverage(
+        df_temp_only_exact,
+        float(row["Conformal Prediction Lower Bound"]),
+        float(row["Conformal Prediction Upper Bound"]),
     )
-    upper_cov_of_exact = df_temp_only_exact["Upper_bound"] <= float(
-        row["Conformal Prediction Upper Bound"]
+    row["Coverage_conformal_with_exact_number_of_exact"] = calculate_coverage(
+        df_temp_only_exact,
+        float(row["Conformal Prediction Lower Bound with Exact Number"]),
+        float(row["Conformal Prediction Upper Bound with Exact Number"]),
     )
-
-    lower_cov_with_exact_of_exact = df_temp_only_exact["Lower_bound"] >= float(
-        row["Conformal Prediction Lower Bound with Exact Number"]
-    )
-    upper_cov_with_exact_of_exact = df_temp_only_exact["Upper_bound"] <= float(
-        row["Conformal Prediction Upper Bound with Exact Number"]
-    )
-
-    total_num = df_temp.shape[0]
-    total_num_of_exact = df_temp_only_exact.shape[0]
-    if total_num > 0:
-        row["Coverage_conformal"] = sum(lower_cov & upper_cov) / total_num
-        row["Coverage_conformal_with_exact_number"] = (
-            sum(lower_cov_with_exact & upper_cov_with_exact) / total_num
-        )
-
-        row["Coverage_conformal_of_exact"] = (
-            sum(lower_cov_of_exact & upper_cov_of_exact) / total_num_of_exact
-        )
-        row["Coverage_conformal_with_exact_number_of_exact"] = (
-            sum(lower_cov_with_exact_of_exact & upper_cov_with_exact_of_exact)
-            / total_num_of_exact
-        )
-
-    else:
-        row["Coverage_conformal"] = 0
-        row["Coverage_conformal_with_exact_number"] = 0
 
     return row
 
@@ -175,8 +174,8 @@ def compute_coverage(row):
 # Applying the function to each row
 result_with_cov = results.apply(compute_coverage, axis=1)
 # %%
-exp = 10
-alpha = 0.5
+exp = 20.0
+alpha = result_with_cov["Alpha"].unique()[0]
 
 results_with_cov_plot = result_with_cov.loc[
     (result_with_cov["Experience"] == exp) & (result_with_cov["Alpha"] == alpha),
@@ -207,11 +206,45 @@ results_with_cov_plot.plot(
     ax=plt.gca(),  # Plot on the same axes
 )
 plt.axhline(1 - alpha, color="tab:red", linestyle="--")
-# plt.ylim(0.5, 1)
+# plt.ylim(0.0, 1)
 plt.xlabel("Education")
 plt.ylabel("Coverage")
-plt.title("Coverage Metrics by Education")
+# plt.title("Coverage Metrics by Education")
 plt.legend()
+plt.savefig(f"coverage-{exp}-{alpha}.pdf")
 plt.show()
+
+
+# plt.figure()
+
+# # Plot Coverage_conformal
+
+# # Plot Coverage_conformal
+# results_with_cov_plot.plot(
+#     x="Education",
+#     y="Coverage_conformal_of_exact",
+#     kind="line",
+#     marker="o",
+#     label="Coverage_conformal",
+#     ax=plt.gca(),  # Plot on the current axes
+# )
+
+# # Plot Coverage_conformal_with_exact_number
+# results_with_cov_plot.plot(
+#     x="Education",
+#     y="Coverage_conformal_with_exact_number_of_exact",
+#     kind="line",
+#     marker="o",
+#     label="Coverage_conformal_with_exact_number",
+#     ax=plt.gca(),  # Plot on the same axes
+# )
+# plt.axhline(1 - alpha, color="tab:red", linestyle="--")
+# plt.ylim(0.0, 1)
+# plt.xlabel("Education")
+# plt.ylabel("Coverage")
+# plt.title("Coverage Metrics by Education")
+# plt.legend()
+# plt.show()
+
 
 # %%
