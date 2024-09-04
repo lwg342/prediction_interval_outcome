@@ -4,32 +4,27 @@ import numpy as np
 import matplotlib.pyplot as plt
 from utils.empirical import visualize_prediction
 
-dataset = "LFS"
+dataset = "CPS"
 
 if dataset == "LFS":  # 🇬🇧 UKDA_9248 data
-    results = pd.read_csv("UKDA_9248_results_2024-08-27.csv")
+    rslt0 = pd.read_csv("UKDA_9248_results_2024-08-28.csv")
     data = pd.read_csv("wage-data/clean_apsp_jd23_eul_pwta22.tab")
 if dataset == "CPS":  # 🇺🇸 US CPS data
-    results = pd.read_csv("asec23pub_results_2024-08-26.csv")
+    rslt0 = pd.read_csv("asec23pub_results_2024-08-26.csv")
     data = pd.read_csv("wage-data/clean_data_asec_pppub23.csv")
 
-results = results.drop_duplicates(
+rslt0 = rslt0.drop_duplicates(
     subset=["Education", "Alpha", "Experience", "Random Seed"], keep="first"
 )
 
 df_holdout = data[data["Is_holdout"]]
-numeric_columns = results.select_dtypes(include="number").columns.tolist()
+numeric_columns = rslt0.select_dtypes(include="number").columns.tolist()
 
-# Group by the relevant columns and calculate the mean of numeric columns
-results_mean = results.groupby(["Education", "Alpha", "Experience"], as_index=False)[
-    numeric_columns
-].mean()
-results_mean = results.loc[results["Education"] != 11]
-results
+rslt0
+results = rslt0.copy()
 # %%
-columns_to_include = [
-    "Alpha",
-    "Education",
+# [-] Turn income columns from log to normal scale
+income_col = [
     "Prediction Lower Bound",
     "Prediction Upper Bound",
     "Conformal Prediction Lower Bound",
@@ -38,87 +33,14 @@ columns_to_include = [
     "Prediction Upper Bound with Exact Number",
     "Conformal Prediction Lower Bound with Exact Number",
     "Conformal Prediction Upper Bound with Exact Number",
+    "Kernel Regression Lower",
+    "Kernel Regression Upper",
 ]
-selected_data = results_[columns_to_include]
-
-for col in [
-    "Prediction Lower Bound",
-    "Prediction Upper Bound",
-    "Conformal Prediction Lower Bound",
-    "Conformal Prediction Upper Bound",
-    "Prediction Lower Bound with Exact Number",
-    "Prediction Upper Bound with Exact Number",
-    "Conformal Prediction Lower Bound with Exact Number",
-    "Conformal Prediction Upper Bound with Exact Number",
-]:
-    results_[col] = results_[col].apply(lambda x: (np.exp(x)))
-    # data[col] = data[col].apply(lambda x: x)
 
 
-# %%
-# [-] Create table of results
-import pandas as pd
+results[income_col] = rslt0[income_col].apply(lambda x: (np.exp(x)/1000).round(2))
+results
 
-# Create a list to store the new rows
-rows = []
-
-
-# Define a function to append rows to the list
-def append_rows(df, col_lower, col_upper, label):
-    for _, row in df.iterrows():
-        rows.append(
-            {
-                "Alpha": f"{row['Alpha']:.1f}",
-                "Experience": row["Experience"],
-                "Education": row["Education"],
-                "Bounds": f"({int(row[col_lower])}, {int(row[col_upper])})",
-                "Method": label,
-            }
-        )
-
-
-# Append rows for 'Prediction'
-append_rows(results, "Prediction Lower Bound", "Prediction Upper Bound", "P")
-
-# Append rows for 'Conformal Prediction'
-append_rows(
-    results,
-    "Conformal Prediction Lower Bound",
-    "Conformal Prediction Upper Bound",
-    "CP",
-)
-
-append_rows(
-    results,
-    "Prediction Lower Bound with Exact Number",
-    "Prediction Upper Bound with Exact Number",
-    "PW",
-)
-append_rows(
-    results,
-    "Conformal Prediction Lower Bound with Exact Number",
-    "Conformal Prediction Upper Bound with Exact Number",
-    "CPW",
-)
-# Convert the list of rows to a new DataFrame
-df = pd.DataFrame(rows)
-
-df.Education = df["Education"].astype(int)
-df.Experience = df["Experience"].astype(int)
-df.Bounds = df["Bounds"].astype(str)
-results_formatted = df.pivot(
-    index=["Alpha", "Method", "Experience"], columns="Education", values="Bounds"
-)
-
-latex_table = results_formatted.to_latex(
-    multicolumn=True,
-    multirow=True,
-    label=f"tab:{dataset}",
-    longtable=True,
-    caption="Conformal prediction and prediction intervals for annual income, by education level and the speficied alpha level. In the method column, P stands for prediction and CP stands for conformal prediction. W indicates prediction without interval censored data. ",
-)
-
-print(latex_table)
 # %%
 # [-] Analyse coverage on the holdout data
 
@@ -171,14 +93,94 @@ def compute_coverage(row):
     return row
 
 
-# Applying the function to each row
-result_with_cov = results.apply(compute_coverage, axis=1)
+results = results.apply(compute_coverage, axis=1)
 # %%
-exp = 20.0
-alpha = result_with_cov["Alpha"].unique()[0]
+# [-] Create table of results
 
-results_with_cov_plot = result_with_cov.loc[
-    (result_with_cov["Experience"] == exp) & (result_with_cov["Alpha"] == alpha),
+# [-] Group by the relevant columns and calculate the mean of numeric columns
+numeric_columns = results.select_dtypes(include="number").columns.tolist()
+results_mean = results.groupby(["Education", "Alpha", "Experience"], as_index=False)[
+    numeric_columns
+].mean()
+results_mean = results_mean.loc[results_mean["Education"] != 11.0]
+
+# %%
+# [-] Create a list to store the new rows
+
+rows = []
+
+
+# Define a function to append rows to the list
+def append_rows(df, col_lower, col_upper, label):
+    for _, row in df.iterrows():
+        rows.append(
+            {
+                "Alpha": f"{row['Alpha']:.1f}",
+                "Experience": row["Experience"],
+                "Education": row["Education"],
+                "Bounds": f"({(row[col_lower]):.2f}, {(row[col_upper]):.2f})",
+                "Method": label,
+            }
+        )
+
+
+append_rows(results_mean, "Prediction Lower Bound", "Prediction Upper Bound", "P")
+
+# Append rows for 'Conformal Prediction'
+append_rows(
+    results_mean,
+    "Conformal Prediction Lower Bound",
+    "Conformal Prediction Upper Bound",
+    "CP",
+)
+
+append_rows(
+    results_mean,
+    "Prediction Lower Bound with Exact Number",
+    "Prediction Upper Bound with Exact Number",
+    "PW",
+)
+append_rows(
+    results_mean,
+    "Conformal Prediction Lower Bound with Exact Number",
+    "Conformal Prediction Upper Bound with Exact Number",
+    "CPW",
+)
+# Convert the list of rows to a new DataFrame
+result_table = pd.DataFrame(rows)
+
+result_table.Education = result_table["Education"].astype(int)
+result_table.Experience = result_table["Experience"].astype(int)
+result_table.Bounds = result_table["Bounds"].astype(str)
+# %%
+
+
+results_formatted = result_table.pivot(
+    index=["Alpha", "Method", "Experience"], columns="Education", values="Bounds"
+)
+
+latex_table = results_formatted.to_latex(
+    multicolumn=True,
+    multirow=True,
+    label=f"tab:{dataset}",
+    longtable=True,
+    # caption="Conformal prediction and prediction intervals for annual income, by education level and the speficied alpha level. In the method column, P stands for prediction and CP stands for conformal prediction. W indicates prediction without interval censored data. ",
+    caption="Prediction intervals for annual income",
+)
+
+print(latex_table)
+# %%
+# [-] Analyse the coverage property
+
+results_mean
+results_cov = results_mean.loc[results_mean["Alpha"] == 0.9]
+results_cov
+# %%
+exp = 10.0
+alpha = results_mean["Alpha"].unique()[0]
+
+results_with_cov_plot = results_mean.loc[
+    (results_mean["Experience"] == exp) & (results_mean["Alpha"] == alpha),
 ].sort_values(by="Education")
 import matplotlib.pyplot as plt
 
@@ -206,45 +208,12 @@ results_with_cov_plot.plot(
     ax=plt.gca(),  # Plot on the same axes
 )
 plt.axhline(1 - alpha, color="tab:red", linestyle="--")
-# plt.ylim(0.0, 1)
+plt.ylim(0.0, 1)
 plt.xlabel("Education")
 plt.ylabel("Coverage")
 # plt.title("Coverage Metrics by Education")
 plt.legend()
 plt.savefig(f"coverage-{exp}-{alpha}.pdf")
 plt.show()
-
-
-# plt.figure()
-
-# # Plot Coverage_conformal
-
-# # Plot Coverage_conformal
-# results_with_cov_plot.plot(
-#     x="Education",
-#     y="Coverage_conformal_of_exact",
-#     kind="line",
-#     marker="o",
-#     label="Coverage_conformal",
-#     ax=plt.gca(),  # Plot on the current axes
-# )
-
-# # Plot Coverage_conformal_with_exact_number
-# results_with_cov_plot.plot(
-#     x="Education",
-#     y="Coverage_conformal_with_exact_number_of_exact",
-#     kind="line",
-#     marker="o",
-#     label="Coverage_conformal_with_exact_number",
-#     ax=plt.gca(),  # Plot on the same axes
-# )
-# plt.axhline(1 - alpha, color="tab:red", linestyle="--")
-# plt.ylim(0.0, 1)
-# plt.xlabel("Education")
-# plt.ylabel("Coverage")
-# plt.title("Coverage Metrics by Education")
-# plt.legend()
-# plt.show()
-
 
 # %%
