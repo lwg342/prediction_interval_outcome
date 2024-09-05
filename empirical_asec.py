@@ -12,10 +12,10 @@ data = pd.read_csv("wage-data/clean_data_asec_pppub23.csv")
 df = data[~data["Is_holdout"]].copy()
 df_holdout = data[data["Is_holdout"]].copy()
 
-df["Log_upper_bound"].describe()
-
 result_file_path = f"asec23pub_results_{current_date}.csv"
 current_date = pd.Timestamp.now().strftime("%Y-%m-%d")
+
+df["Log_upper_bound"].describe()
 # %%
 bandwidth = np.array([0.34287434, 2.00268184])
 for random_seed in np.arange(20) + 43:
@@ -31,7 +31,7 @@ for random_seed in np.arange(20) + 43:
                 # [!] bandwidth = None for running cross validation, result in [0.34287434 2.00268184]
                 conformal_method="local",
             )
-            
+
             np.random.seed(random_seed)
             dt_exact, results_exact = analyze_and_plot(
                 df.loc[df["I_ERNVAL"] == 0],
@@ -46,6 +46,12 @@ for random_seed in np.arange(20) + 43:
             #     yu_col="Log_income_with_imputed_upper",
             #     alpha=alpha,
             # )
+            dt_mid, results_mid = analyze_and_plot(
+                df,
+                yl_col="Log_mid_point",
+                yu_col="Log_mid_point",
+                alpha=alpha,
+            )
             results["random seed"] = random_seed
             df_results = pd.DataFrame(
                 {
@@ -73,6 +79,19 @@ for random_seed in np.arange(20) + 43:
                     "Conformal Prediction Upper Bound with Exact Number": results_exact[
                         "conformal prediction interval"
                     ][1],
+                    "Prediction Lower Bound with Mid Point": results_mid[
+                        "prediction interval"
+                    ][0],
+                    "Prediction Upper Bound with Mid Point": results_mid[
+                        "prediction interval"
+                    ][1],
+                    "Conformal Prediction Lower Bound with Mid Point": results_mid[
+                        "conformal prediction interval"
+                    ][0],
+                    "Conformal Prediction Upper Bound with Mid Point": results_mid[
+                        "conformal prediction interval"
+                    ][1],
+                    
                     "Conformal Correction": results_exact["conformal correction"],
                     "Kernel Regression Lower": results["kernel regression yl"],
                     "Kernel Regression Upper": results["kernel regression yu"],
