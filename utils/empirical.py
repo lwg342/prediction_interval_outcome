@@ -36,12 +36,11 @@ def analyze_and_plot(
     yl_col="Log_lower_bound",
     yu_col="Log_upper_bound",
     alpha=0.1,
-    edu_fixed=14,
     exp_fixed=15,
-    edu_variable=np.array([11, 12, 14, 16, 18]),
-    exp_variable=np.array([10, 11, 12, 13, 14, 16, 17, 18, 19]),
+    edu_variable=np.array([12, 14, 16, 18]),
     conformal_method="local",
     bandwidth=np.array([0.1, 1.7]),
+    comment="",
 ):
     data = EmpiricalData(df, x_cols, yl_col, yu_col)
 
@@ -49,7 +48,7 @@ def analyze_and_plot(
         h_cv = cvBandwidthSelection(alpha, data)
     else:
         h_cv = bandwidth
-    print(f"The bandwidth is {h_cv}")
+    print(f"The bandwidth is {h_cv}, data comment: {comment}")
 
     exp_arr = np.full_like(edu_variable, exp_fixed)
     x_eval_fixed = np.column_stack((edu_variable, exp_arr))
@@ -120,15 +119,19 @@ def analyze_and_plot(
     yu_eval = reg_model_u.predict(x_eval_fixed)
 
     results = {
-        "edu": edu_variable,
-        "experience": exp_arr[0],
-        "alpha": alpha,
-        "prediction interval": pred_interval_eval_edu,
-        "conformal prediction interval": conformal_interval_eval_edu,
-        "conformal correction": qq,
-        "kernel regression yl": yl_eval,
-        "kernel regression yu": yu_eval,
+        "Education": edu_variable,
+        "Experience": [exp_arr[0]] * len(edu_variable),
+        "Alpha": [alpha] * len(edu_variable),
+        "Prediction Lower Bound": pred_interval_eval_edu[0],
+        "Prediction Upper Bound": pred_interval_eval_edu[1],
+        "Conformal Prediction Lower Bound": conformal_interval_eval_edu[0],
+        "Conformal Prediction Upper Bound": conformal_interval_eval_edu[1],
+        "Conformal Correction": qq,
+        "Kernel Regression Lower": yl_eval,
+        "Kernel Regression Upper": yu_eval,
+        "Comment": [comment] * len(edu_variable),
     }
+    # print(results)
     return data, results
 
 

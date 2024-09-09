@@ -10,11 +10,11 @@ if dataset == "LFS":  # 🇬🇧 UKDA_9248 data
     rslt0 = pd.read_csv("UKDA_9248_results_2024-08-28.csv")
     data = pd.read_csv("wage-data/clean_apsp_jd23_eul_pwta22.tab")
 if dataset == "CPS":  # 🇺🇸 US CPS data
-    rslt0 = pd.read_csv("asec23pub_results_2024-08-26.csv")
+    rslt0 = pd.read_csv("asec23pub_results_2024-09-06.csv")
     data = pd.read_csv("wage-data/clean_data_asec_pppub23.csv")
 
 rslt0 = rslt0.drop_duplicates(
-    subset=["Education", "Alpha", "Experience", "Random Seed"], keep="first"
+    subset=["Education", "Alpha", "Experience", "Comment", "Random Seed"], keep="first"
 )
 
 df_holdout = data[data["Is_holdout"]]
@@ -29,10 +29,6 @@ income_col = [
     "Prediction Upper Bound",
     "Conformal Prediction Lower Bound",
     "Conformal Prediction Upper Bound",
-    "Prediction Lower Bound with Exact Number",
-    "Prediction Upper Bound with Exact Number",
-    "Conformal Prediction Lower Bound with Exact Number",
-    "Conformal Prediction Upper Bound with Exact Number",
     "Kernel Regression Lower",
     "Kernel Regression Upper",
 ]
