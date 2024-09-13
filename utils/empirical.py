@@ -48,7 +48,7 @@ def analyze_and_plot(
         h_cv = cvBandwidthSelection(alpha, data)
     else:
         h_cv = bandwidth
-    print(f"The bandwidth is {h_cv}, data comment: {comment}")
+    # print(f"The bandwidth is {h_cv}, data comment: {comment}")
 
     exp_arr = np.full_like(edu_variable, exp_fixed)
     x_eval_fixed = np.column_stack((edu_variable, exp_arr))

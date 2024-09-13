@@ -1,8 +1,9 @@
-# %%
 import os
 import pandas as pd
 import numpy as np
 from utils.empirical import analyze_and_plot
+from concurrent.futures import ProcessPoolExecutor
+from tqdm import tqdm
 
 current_date = pd.Timestamp.now().strftime("%Y-%m-%d")
 
@@ -11,49 +12,18 @@ df = data[~data["Is_holdout"]].copy()
 df_holdout = data[data["Is_holdout"]].copy()
 
 result_file_path = f"asec23pub_results_{current_date}.csv"
-current_date = pd.Timestamp.now().strftime("%Y-%m-%d")
-
-df["Log_upper_bound"].describe()
-# %%
 bandwidth = np.array([0.34287434, 2.00268184])
-from tqdm import tqdm
 
-
-def execution(
-    current_date, df, result_file_path, bandwidth, alpha, exp_fixed, random_seed
-):
+def execution(current_date, df, result_file_path, bandwidth, alpha, exp_fixed, random_seed):
     np.random.seed(random_seed)
     _, results = analyze_and_plot(
         df,
         alpha=alpha,
         exp_fixed=exp_fixed,
         bandwidth=bandwidth,
-        # [!] bandwidth = None for running cross validation, result in [0.34287434 2.00268184]
         conformal_method="local",
         comment="full",
     )
-
-    # np.random.seed(random_seed)
-    # _, results_exact = analyze_and_plot(
-    #     df.loc[df["I_ERNVAL"] == 0],
-    #     alpha=alpha,
-    #     exp_fixed=exp_fixed,
-    #     bandwidth=bandwidth,
-    #     conformal_method="local",
-    #     comment="exact",
-    # )
-
-    # np.random.seed(random_seed)
-    # _, results_mid = analyze_and_plot(
-    #     df,
-    #     alpha=alpha,
-    #     exp_fixed=exp_fixed,
-    #     yl_col="Log_mid_point",
-    #     yu_col="Log_mid_point",
-    #     bandwidth=bandwidth,
-    #     conformal_method="local",
-    #     comment="mid",
-    # )
 
     np.random.seed(random_seed)
     _, results_impute = analyze_and_plot(
@@ -70,8 +40,6 @@ def execution(
     rslt_collection = pd.concat(
         [
             pd.DataFrame(results),
-            # pd.DataFrame(results_exact),
-            # pd.DataFrame(results_mid),
             pd.DataFrame(results_impute),
         ]
     )
@@ -80,28 +48,25 @@ def execution(
     rslt_collection["Experience Bandwidth"] = bandwidth[1]
 
     # File path for saving CSV
-
     if not os.path.isfile(result_file_path):
         rslt_collection.to_csv(result_file_path, mode="w", header=True, index=False)
     else:
         rslt_collection.to_csv(result_file_path, mode="a", header=False, index=False)
 
-
-for iter in tqdm(range(20)):
+# Function to run a single configuration in parallel
+def run_parallel(iteration):
     for alpha in np.array([0.1, 0.5, 0.9]):
         for exp_fixed in np.array([10, 20]):
-            random_seed = np.array(iter) + 43
-            # print(f"alpha: {alpha}, exp_fixed: {exp_fixed}, for seed: {random_seed}")
+            random_seed = np.array(iteration) + 43
+            execution(current_date, df, result_file_path, bandwidth, alpha, exp_fixed, random_seed)
 
-            execution(
-                current_date,
-                df,
-                result_file_path,
-                bandwidth,
-                alpha,
-                exp_fixed,
-                random_seed,
-            )
+# Use ProcessPoolExecutor for parallel processing
+if __name__ == "__main__":
+    iterations = range(20)  # 20 iterations
 
+    # Set the number of CPU cores to use
+    num_cores = 4  # Adjust this to the number of cores you want to use
 
-# %%
+    # Run in parallel across random seeds
+    with ProcessPoolExecutor(max_workers=num_cores) as executor:
+        list(tqdm(executor.map(run_parallel, iterations), total=len(iterations)))
