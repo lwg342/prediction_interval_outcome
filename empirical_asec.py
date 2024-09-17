@@ -90,7 +90,7 @@ def execution(
 for iter in tqdm(range(20)):
     for alpha in np.array([0.1, 0.5, 0.9]):
         for exp_fixed in np.array([10, 20]):
-            random_seed = np.array(iter) + 43
+            random_seed = np.array(iter) + 19260817
             # print(f"alpha: {alpha}, exp_fixed: {exp_fixed}, for seed: {random_seed}")
 
             execution(

@@ -1,6 +1,11 @@
 # %%
 import numpy as np
-
+from utils.set_estimation import (
+    create_grid,
+    create_valid_interval_array,
+    find_optimal_interval,
+    find_optimal_set,
+)
 
 score_func_abs_val = lambda y_obs, y_pred: np.abs(y_obs - y_pred)
 score_func_sq = lambda y_obs, y_pred: (y_obs - y_pred) ** 2
@@ -19,7 +24,7 @@ def split_conformal_inference_abs_score(
     return interval(y_new_pred, qq)
 
 
-def score_quantile(x_test, y_test, predictor, score_func, alpha=0.05):
+def score_quantile(x_test, y_test, predictor, score_func, alpha=0.1):
     y_test_pred = predictor(x_test)
     score = score_func(y_test, y_test_pred)
     qq = np.quantile(score, 1 - alpha)
@@ -77,7 +82,7 @@ def multivariate_epanechnikov_kernel(x, xi, h):
     return np.prod(kernel_values, axis=2)
 
 
-def compute_weights(weights_unnormalized):
+def normalize_weights(weights_unnormalized):
     weights = weights_unnormalized / np.sum(weights_unnormalized, axis=1, keepdims=True)
     return weights
 
@@ -101,7 +106,6 @@ def silvermans_rule(x):
 def compute_weight_sum(yl, yu, weights, t0, t1):
     # Create a boolean mask for the condition
     mask = (t0 <= yl) & (yu <= t1)
-
     # Compute the sum of weights for elements satisfying the condition
     weight_sum = np.sum(weights[mask])
 
@@ -115,7 +119,7 @@ def eligible_t0t1(yl, yu, weights):
     return t0, t1
 
 
-def find_t_hat(yl_train, yu_train, compute_weight_sum, weights, t0c, t1c, alpha=0.05):
+def find_t_hat(yl_train, yu_train, compute_weight_sum, weights, t0c, t1c, alpha=0.1):
     weights_pos = weights > 0
     yl_pos = yl_train[weights_pos]
     yu_pos = yu_train[weights_pos]
@@ -141,22 +145,43 @@ def find_t_hat(yl_train, yu_train, compute_weight_sum, weights, t0c, t1c, alpha=
     return [optimal_t0, optimal_t1]
 
 
-def pred_interval(x, x_train, yl_train, yu_train, h, alpha=0.05):
+def pred_interval(
+    x, x_train, yl_train, yu_train, h, alpha=0.1, option="grid", n_grid=100
+):
     pred_interval = np.zeros([2, x.shape[0]])
-    weights = compute_weights(
+    weights_array = normalize_weights(
         multivariate_epanechnikov_kernel(
             x,
             x_train,
             h=h,
         )
     )
-    for i in range(x.shape[0]):
-        t0c, t1c = eligible_t0t1(yl_train, yu_train, weights[i])
+    if option == "all":
+        for i in range(x.shape[0]):
+            t0c, t1c = eligible_t0t1(yl_train, yu_train, weights_array[i])
 
-        pred_interval[:, i] = find_t_hat(
-            yl_train, yu_train, compute_weight_sum, weights[i], t0c, t1c, alpha=alpha
-        )
-    return pred_interval
+            pred_interval[:, i] = find_t_hat(
+                yl_train,
+                yu_train,
+                compute_weight_sum,
+                weights_array[i],
+                t0c,
+                t1c,
+                alpha=alpha,
+            )
+        return pred_interval
+
+    if option == "grid":
+        for i, x_i in enumerate(x):
+            weights = weights_array[i]
+            grid = create_grid(
+                *eligible_t0t1(yl_train, yu_train, weights), n_grid=n_grid
+            )
+            interval_arr = create_valid_interval_array(grid, grid)
+            pred_interval[:, i] = find_optimal_interval(
+                interval_arr, weights, yl_train, yu_train, alpha=alpha
+            )
+        return pred_interval
 
 
 def find_oracle_interval(intvs, n, alpha):
@@ -196,19 +221,3 @@ def calculate_proportion_interval(samples_lower, samples_upper, bounds):
     )
     proportion_within_bounds = np.mean(within_bounds, axis=0)
     return proportion_within_bounds
-
-
-def create_interactive_terms(list1, list2):
-    """
-    This function takes two lists and returns a list of interactive terms.
-    Each interactive term is a tuple consisting of one element from each list.
-
-    Parameters:
-    list1 (list): The first list of elements.
-    list2 (list): The second list of elements.
-
-    Returns:
-    list: A list of tuples representing the interactive terms.
-    """
-    interactive_terms = [(item1, item2) for item1 in list1 for item2 in list2]
-    return interactive_terms

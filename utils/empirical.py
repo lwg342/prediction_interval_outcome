@@ -78,7 +78,7 @@ def analyze_and_plot(
             x_test_locl = data.df.loc[condition, x_cols].to_numpy()
             yl_test_local = data.df.loc[condition, yl_col].to_numpy()
             yu_test_locl = data.df.loc[condition, yu_col].to_numpy()
-
+            
             pred_interval_test = pred_interval(
                 x_test_locl,
                 data.x_train,

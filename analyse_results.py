@@ -10,7 +10,7 @@ if dataset == "LFS":  # 🇬🇧 UKDA_9248 data
     rslt0 = pd.read_csv("UKDA_9248_results_2024-08-28.csv")
     data = pd.read_csv("wage-data/clean_apsp_jd23_eul_pwta22.tab")
 if dataset == "CPS":  # 🇺🇸 US CPS data
-    rslt0 = pd.read_csv("asec23pub_results_2024-09-09.csv")
+    rslt0 = pd.read_csv("asec23pub_results_2024-09-11.csv")
     data = pd.read_csv("wage-data/clean_data_asec_pppub23.csv")
 
 rslt0 = rslt0.drop_duplicates(
@@ -136,13 +136,13 @@ append_rows(
 )
 
 append_rows(
-    results_mean.loc[results_mean["Comment"] == "mid"],
+    results_mean.loc[results_mean["Comment"] == "hot deck"],
     "Prediction Lower Bound",
     "Prediction Upper Bound",
     "PM",
 )
 append_rows(
-    results_mean.loc[results_mean["Comment"] == "mid"],
+    results_mean.loc[results_mean["Comment"] == "hot deck"],
     "Conformal Prediction Lower Bound",
     "Conformal Prediction Upper Bound",
     "CPM",
@@ -179,13 +179,13 @@ results_mean
 results_cov = results_mean.loc[results_mean["Alpha"] == 0.9]
 results_cov
 # %%
-exp = 20.0
-alpha = results_mean["Alpha"].unique()[0]
+exp = 10.0
+alpha = results_mean["Alpha"].unique()[1]
 
 results_with_cov_plot = results_mean.loc[
     (results_mean["Experience"] == exp) & (results_mean["Alpha"] == alpha),
 ].sort_values(by="Education")
-using_mid = results_with_cov_plot["Comment"] == "mid"
+using_mid = results_with_cov_plot["Comment"] == "hot deck"
 
 import matplotlib.pyplot as plt
 

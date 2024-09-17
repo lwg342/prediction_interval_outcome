@@ -68,3 +68,21 @@ class SimData:
 
         self.yl_reg = self.yl_eval_samples.mean(axis=0)
         self.yu_reg = self.yu_eval_samples.mean(axis=0)
+
+
+class IntervalCensoredData:
+    def __init__(self, x, y, yl, yu):
+        self.x = x
+        self.y = y
+        self.yl = yl
+        self.yu = yu
+        (
+            self.x_train,
+            self.x_test,
+            self.yl_train,
+            self.yl_test,
+            self.yu_train,
+            self.yu_test,
+            self.y_train,
+            self.y_test,
+        ) = train_test_split(self.x, self.yl, self.yu, self.y)

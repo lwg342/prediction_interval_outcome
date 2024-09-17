@@ -126,7 +126,7 @@ for j in tqdm(range(nsim)):
         h=h_cv,
     )
     conformal_interval_eval = np.array(
-        [pred_interval_eval[0] - qq, pred_interval_eval[1]] + qq
+        [pred_interval_eval[0] - qq, pred_interval_eval[1] + qq]
     )
 
     quantile_025_model = sm.QuantReg(data.yl_train, sm.add_constant(data.x_train)).fit(
@@ -181,7 +181,7 @@ for j in tqdm(range(nsim)):
         conformal_interval_eval_quantile[1] - conformal_interval_eval_quantile[0]
     )
 # %%
-# Plot for coverage probability using the CDF method with adjusted marker properties
+# Plot for coverage probability using the CDF method
 plt.figure(figsize=(10, 6))
 plt.plot(
     x_eval_fixed,
