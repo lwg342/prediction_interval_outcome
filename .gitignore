@@ -1,11 +1,15 @@
 # ------ Tempelate starts ------#	
 # ignore .DS_Store and subfolders	
+*.csv
 *.pdf
 *.eps 
 *.png 
 
 * /*
 tex/**
+wage-data/**
+archive/** 
+tex/** */
 .vscode/*
 .DS_Store
 
@@ -323,3 +327,4 @@ TSWLatexianTemp*
 # option is specified. Footnotes are the stored in a file with suffix Notes.bib.	
 # Uncomment the next line to have this generated file ignored.	
 #*Notes.bib
+simulation_with_glm.py
