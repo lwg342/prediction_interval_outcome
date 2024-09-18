@@ -5,13 +5,12 @@ default_dgp_params = {
     "N": 1000,
     "K": 1,
     "eps_std": 1.0,
-    "pos": [0],
     "scale": 1.0,
 }
 
 default_gen_x = lambda N, K, **kwargs: np.random.uniform(-2, 2, [N, K])
 default_gen_eps = lambda N, eps_std, **kwargs: np.random.normal(0, eps_std, N)
-default_gen_y_signal = lambda x, pos, **kwargs: np.inner(x[:, pos], np.ones(len(pos)))
+default_gen_y_signal = lambda x, **kwargs: np.inner(x, np.ones(x.shape[1]))
 default_get_interval = lambda y, scale, **kwargs: (
     np.floor(y / scale) * scale,
     np.ceil(y / scale) * scale,

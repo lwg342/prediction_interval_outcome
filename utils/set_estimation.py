@@ -1,7 +1,7 @@
 import numpy as np
 
 
-def find_optimal_interval(
+def  find_optimal_interval(
     grid_of_intervals: np.ndarray,
     weights: np.ndarray,
     yl: float,

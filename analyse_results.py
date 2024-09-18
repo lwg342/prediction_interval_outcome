@@ -2,22 +2,22 @@
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
-from utils.empirical import visualize_prediction
+from sklearn.model_selection import train_test_split
 
+# %%
 dataset = "CPS"
 
 if dataset == "LFS":  # 🇬🇧 UKDA_9248 data
     rslt0 = pd.read_csv("UKDA_9248_results_2024-08-28.csv")
     data = pd.read_csv("wage-data/clean_apsp_jd23_eul_pwta22.tab")
 if dataset == "CPS":  # 🇺🇸 US CPS data
-    rslt0 = pd.read_csv("asec23pub_results_2024-09-11.csv")
+    rslt0 = pd.read_csv("asec23pub_results_2024-09-17.csv")
     data = pd.read_csv("wage-data/clean_data_asec_pppub23.csv")
 
 rslt0 = rslt0.drop_duplicates(
     subset=["Education", "Alpha", "Experience", "Comment", "Random Seed"], keep="first"
 )
 
-df_holdout = data[data["Is_holdout"]]
 numeric_columns = rslt0.select_dtypes(include="number").columns.tolist()
 
 rslt0
@@ -29,8 +29,8 @@ income_col = [
     "Prediction Upper Bound",
     "Conformal Prediction Lower Bound",
     "Conformal Prediction Upper Bound",
-    "Kernel Regression Lower",
-    "Kernel Regression Upper",
+    # "Kernel Regression Lower",
+    # "Kernel Regression Upper",
 ]
 
 
@@ -52,6 +52,10 @@ def compute_coverage(row):
         lower_cov = df["Lower_bound"] >= lower_bound
         upper_cov = df["Upper_bound"] <= upper_bound
         return sum(lower_cov & upper_cov) / len(df) if len(df) > 0 else 0
+
+    _, df_holdout = train_test_split(
+        data, test_size=0.2, random_state=row["Random Seed"]
+    )
 
     selection = (
         (df_holdout["Education"] == row["Education"])
@@ -180,7 +184,7 @@ results_cov = results_mean.loc[results_mean["Alpha"] == 0.9]
 results_cov
 # %%
 exp = 10.0
-alpha = results_mean["Alpha"].unique()[1]
+alpha = results_mean["Alpha"].unique()[0]
 
 results_with_cov_plot = results_mean.loc[
     (results_mean["Experience"] == exp) & (results_mean["Alpha"] == alpha),

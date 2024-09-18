@@ -16,7 +16,7 @@ print(cdt)
 
 
 # %%
-def get_interval(y, scale, **kwargs):
+def interval_censor(y, scale, **kwargs):
     # err1 = np.random.chisquare(df=1, size=y.shape) * scale
     # err2 = np.random.chisquare(df=2, size=y.shape) * scale
 
@@ -42,19 +42,17 @@ dgp_params = {
     "N": 1000,
     "K": 1,
     "eps_std": 1.0,
-    "pos": [0],
     "scale": 1.0,
 }
-gen_y_signal = lambda x, pos, **kwargs: np.inner(x[:, pos], np.ones(len(pos)))
 
-nsim = 500
+
+nsim = 100
 n_eval = 50
 
 
 # %%
-data_eval = SimData(
-    get_interval=get_interval, gen_y_signal=gen_y_signal, dgp_params=dgp_params
-)
+data_eval = SimData(get_interval=interval_censor, dgp_params=dgp_params)
+
 data_eval.gen_eval(n_eval)
 x_eval_fixed = data_eval.x_eval
 y_new = data_eval.y_eval_samples
@@ -96,11 +94,10 @@ print(f"Mean squared error: {mse}")
 plt.plot(candidate_bandwidth, mse)
 # h_cv = 0.47
 # %%
+alpha =0.1
 for j in tqdm(range(nsim)):
 
-    data = SimData(
-        get_interval=get_interval, gen_y_signal=gen_y_signal, dgp_params=dgp_params
-    )
+    data = SimData(get_interval=interval_censor, dgp_params=dgp_params)
 
     candidate_bandwidth = 0.3 * np.arange(1, 10) * silvermans_rule(data.x_train)
 
@@ -115,7 +112,7 @@ for j in tqdm(range(nsim)):
     scores = np.maximum(
         pred_interval_test[0] - data.yl_test, data.yu_test - pred_interval_test[1]
     )
-    qq = np.quantile(scores, [0.95], method="higher")
+    qq = np.quantile(scores, [1 - alpha], method="higher")
     # print(qq)
 
     pred_interval_eval = pred_interval(
@@ -130,10 +127,10 @@ for j in tqdm(range(nsim)):
     )
 
     quantile_025_model = sm.QuantReg(data.yl_train, sm.add_constant(data.x_train)).fit(
-        q=0.025
+        q=alpha / 2
     )
     quantile_975_model = sm.QuantReg(data.yu_train, sm.add_constant(data.x_train)).fit(
-        q=0.975
+        q=1 - alpha / 2
     )
 
     # Predict intervals for test points
@@ -144,7 +141,7 @@ for j in tqdm(range(nsim)):
     scores = np.maximum(
         interval_quantile[0] - data.yl_test, data.yu_test - interval_quantile[1]
     )
-    qq = np.quantile(scores, [0.95], method="higher")
+    qq = np.quantile(scores, [1-alpha], method="higher")
     pred_interval_eval_quantile = np.array(
         [
             quantile_025_model.predict(sm.add_constant(x_eval_fixed)),
@@ -303,6 +300,6 @@ def symmetric_difference(interval_1, interval_2):
     return np.abs(interval_1[0] - interval_2[0]) + np.abs(interval_1[1] - interval_2[1])
 
 
-sym_diff= symmetric_difference(oracle_interval, pred_interval_eval)
+sym_diff = symmetric_difference(oracle_interval, pred_interval_eval)
 plt.plot(sym_diff)
 # %%

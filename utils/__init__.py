@@ -183,6 +183,19 @@ def pred_interval(
             )
         return pred_interval
 
+    if option == "two intervals":
+        pred_interval = np.zeros([4, x.shape[0]])
+        for i, x_i in enumerate(x):
+            weights = weights_array[i]
+            grid = create_grid(
+                *eligible_t0t1(yl_train, yu_train, weights), n_grid=n_grid
+            )
+            interval_arr = create_valid_interval_array(grid, grid)
+            pred_interval[:, i] = find_optimal_set(
+                interval_arr, weights, yl_train, yu_train, alpha=alpha, K=2
+            )
+        return pred_interval
+
 
 def find_oracle_interval(intvs, n, alpha):
     sorted_intvs = intvs[np.argsort(intvs[:, 0])]
