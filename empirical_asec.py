@@ -99,7 +99,7 @@ def execution(
         rslt_collection.to_csv(result_file_path, mode="a", header=False, index=False)
 
 
-for iter in tqdm(range(50)):
+for iter in tqdm(range(100)):
     random_seed = np.array(iter) + 19260817
     for alpha in np.array([0.1, 0.25, 0.5, 0.9]):
         execution(

@@ -11,7 +11,7 @@ if dataset == "LFS":  # 🇬🇧 UKDA_9248 data
     rslt0 = pd.read_csv("UKDA_9248_results_2024-08-28.csv")
     data = pd.read_csv("wage-data/clean_apsp_jd23_eul_pwta22.tab")
 if dataset == "CPS":  # 🇺🇸 US CPS data
-    rslt0 = pd.read_csv("asec23pub_results_2024-09-17.csv")
+    rslt0 = pd.read_csv("asec23pub_results_2024-09-18.csv")
     data = pd.read_csv("wage-data/clean_data_asec_pppub23.csv")
 
 rslt0 = rslt0.drop_duplicates(
@@ -183,8 +183,8 @@ results_mean
 results_cov = results_mean.loc[results_mean["Alpha"] == 0.9]
 results_cov
 # %%
-exp = 10.0
-alpha = results_mean["Alpha"].unique()[0]
+exp = 30.0
+alpha = results_mean["Alpha"].unique()[3]
 
 results_with_cov_plot = results_mean.loc[
     (results_mean["Experience"] == exp) & (results_mean["Alpha"] == alpha),
@@ -221,7 +221,7 @@ plt.xlabel("Education")
 plt.ylabel("Coverage")
 # plt.title("Coverage Metrics by Education")
 plt.legend()
-plt.savefig(f"coverage-{exp}-{alpha}.pdf")
+plt.savefig(f"coverage-{int(exp)}-{alpha:.2f}.pdf")
 plt.show()
 
 # %%
