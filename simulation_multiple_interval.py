@@ -16,7 +16,7 @@ def f(x):
 
 
 def g(x):
-    return 4 * np.sqrt((x + 0.5) * (x >= -0.5))
+    return 3 * np.sqrt((x + 0.5) * (x >= -0.5))
 
 
 def sigma2(x):
@@ -38,21 +38,30 @@ def gen_y(X):
 
 
 def interval_censor(y, scale=0.5, **kwargs):
-    err1 = np.abs(np.random.normal(0, scale, y.shape))
-    err2 = np.abs(np.random.normal(0, scale, y.shape))
+    # err1 = np.abs(np.random.normal(0, scale, y.shape))
+    # err2 = np.abs(np.random.normal(0, scale, y.shape))
     # err1 = 0
     # err2 = 0
     # err1 = np.random.exponential(0.1, size=y.shape) / 2
     # err2 = np.random.exponential(2.0, size=y.shape) / 2
     # err1 =0
     # err2 = 0.2
-    return (y - err1, y + err2)
+    # return (y - err1, y + err2)
+
+    rr = np.random.rand(y.shape[0])
+    yl, yu = np.zeros_like(y), np.zeros_like(y)
+    mask = rr < 0.1
+    yl[mask], yu[mask] = y[mask], y[mask]
+
+    yl[~mask] = np.floor(y[~mask] / scale) * scale
+    yu[~mask] = (np.floor(y[~mask] / scale) + 1) * scale
+    return (yl, yu)
 
 
-def generate_data(sample_size=1000):
+def generate_data(sample_size=1000, scale=1):
     x = gen_x(sample_size)
     y = gen_y(x)
-    yl, yu = interval_censor(y)
+    yl, yu = interval_censor(y, scale=scale)
     data = IntervalCensoredData(x, y, yl, yu)
     return data
 
@@ -216,6 +225,13 @@ def replace_nan_with_mean(arr):
     return arr1
 
 
+def conformal_intervals_mid_merge(conf_pred):
+    mask = conf_pred[1] >= conf_pred[2]
+    conf_pred[1, mask] = np.nan
+    conf_pred[2, mask] = np.nan
+    return conf_pred
+
+
 def coverage_ratio(x_eval, prediction, yl, yu, K=1):
     coverage = np.zeros(x_eval.shape[0])
     for i in range(x_eval.shape[0]):
@@ -223,46 +239,111 @@ def coverage_ratio(x_eval, prediction, yl, yu, K=1):
     return coverage
 
 
-def display_intervals(x_eval, interval, data, label="Prediction interval"):
-    plt.figure(figsize=(10, 6))
+def display_intervals(
+    x_eval,
+    interval,
+    data,
+    label="Prediction interval",
+    savefig=False,
+    title="prediction_intervals.pdf",
+):
+    plt.figure(figsize=(16, 12))
     if interval is not None:
         for j in range(interval.shape[0]):
             if j == 0:
                 plt.plot(
                     x_eval.flatten(),
                     interval[j],
-                    color="tab:blue",
+                    # color="tab:red",
                     label="Prediction interval",
+                    linestyle="--",
+                    linewidth=3,
                 )
             else:
-                plt.plot(x_eval.flatten(), interval[j], color="tab:blue")
-
-    plt.plot(data.x, data.yl, ".", color="tab:orange", markersize=4)
-    plt.plot(data.x, data.yu, ".", color="tab:orange", markersize=4)
+                plt.plot(
+                    x_eval.flatten(),
+                    interval[j],
+                    # color="grey",
+                    linestyle="--",
+                    linewidth=3,
+                )
+    sparse = 1000
+    plt.plot(
+        data.x[:sparse],
+        data.yl[:sparse],
+        "o",
+        color="salmon",
+        markersize=4,
+        label="Lower bracket yl",
+    )
+    plt.plot(
+        data.x[:sparse],
+        data.yu[:sparse],
+        "x",
+        color="tab:blue",
+        markersize=4,
+        label="Upper bracket yu",
+    )
     plt.vlines(
-        data.x,
-        data.yl,
-        data.yu,
-        colors="tab:green",
-        linestyles="solid",
-        alpha=0.3,
+        data.x[:sparse],
+        data.yl[:sparse],
+        data.yu[:sparse],
+        colors="grey",
+        alpha=0.5,
+        linewidth=0.5,
+        linestyle="--",
         label="Interval (yl,yu)",
     )
+    # for i in range(sparse):
+    #     if i == 0:
+    #         arrow = FancyArrowPatch(
+    #             (data.x.flatten()[i], data.yl[i]),
+    #             (data.x.flatten()[i], data.yu[i]),
+    #             arrowstyle="|-|",
+    #             linestyle="--",
+    #             alpha=0.5,
+    #             mutation_scale=2,
+    #             label="Interval (yl,yu)",
+    #         )
+    #     else:
+    #         arrow = FancyArrowPatch(
+    #             (data.x.flatten()[i], data.yl[i]),
+    #             (data.x.flatten()[i], data.yu[i]),
+    #             arrowstyle="|-|",
+    #             linestyle="--",
+    #             alpha=0.5,
+    #             mutation_scale=2,
+    #         )
+
+    #     plt.gca().add_patch(arrow)
 
     plt.xlabel("x")
     plt.ylabel("y")
-    plt.title("Intervals against x_eval")
-    plt.legend()
+    # plt.title("Intervals against x_eval")
+    plt.legend(fontsize=20)
 
     plt.tight_layout()
+    if savefig:
+        plt.savefig(title)
     plt.show()
 
 
-# [-] Simulation for nsim times
-def execution(alpha=0.1, iteration=0, plot=True):
+# display_intervals(
+#     x_eval,
+#     conf_pred_q_3,
+#     data,
+#     savefig=True,
+#     title=f"prediction_intervals_q3.pdf",
+# )
+# %%
+def execution(
+    alpha=0.1, bandwidth=0.2, scale=1, iteration=0, plot=False, save_csv=False
+):
     # [-] Generate data
-    data = generate_data(sample_size=1000)
+    data = generate_data(sample_size=1000, scale=scale)
     n_eval = 50
+    n_grid = 100
+    n_partition = 10
     x_eval = np.linspace(-1.5, 1.5, n_eval)[:, np.newaxis]
     # [-]  Construct C_hat
     pred_eval = pred_interval(
@@ -271,8 +352,8 @@ def execution(alpha=0.1, iteration=0, plot=True):
         data.yl_train,
         data.yu_train,
         h=bandwidth,
-        alpha=alpha,
-        n_grid=100,
+        alpha=alpha + 0.02,
+        n_grid=n_grid,
         option="two intervals",
     )
     # [-] Construct C_tilde conformalised prediction set
@@ -281,8 +362,9 @@ def execution(alpha=0.1, iteration=0, plot=True):
         pred_test, pred_eval, data.yl_test, data.yu_test, alpha=alpha
     )
 
+    conf_pred = conformal_intervals_mid_merge(conf_pred)
     # [-] Construct local conformalised prediction set
-    n_partition = 5
+
     partition = np.linspace(-1.5, 1.5, n_partition + 1)
     qq = np.zeros(n_partition)
     conf_pred_local = conf_pred.copy()
@@ -305,6 +387,7 @@ def execution(alpha=0.1, iteration=0, plot=True):
                 pred_eval[3, x_eval_in_partition == j] + qq[j],
             ]
         )
+        conf_pred_local = conformal_intervals_mid_merge(conf_pred_local)
     # [-]  Construct C_quantile conformalised prediction set based on quantile regression
     conf_pred_q_3 = conf_pred_quantile_method(
         alpha, data, x_eval, construct_features=cubic_features
@@ -326,25 +409,27 @@ def execution(alpha=0.1, iteration=0, plot=True):
     cov_quantile_3 = coverage_ratio(x_eval, conf_pred_q_3, yl_sample, yu_sample, K=1)
     cov_quantile_2 = coverage_ratio(x_eval, conf_pred_q_2, yl_sample, yu_sample, K=1)
     # [-] Save the results
-    rslt_row = {
-        "x_eval": x_eval.flatten(),
-        "vol_cdf": vol_cdf,
-        "vol_quantile_3": vol_quantile_3,
-        "vol_quantile_2": vol_quantile_2,
-        "cov_cdf": cov_cdf,
-        "cov_quantile_3": cov_quantile_3,
-        "cov_quantile_2": cov_quantile_2,
-        "vol_cdf_local": vol_cdf_local,
-        "cov_cdf_local": cov_cdf_local,
-    }
-    rslt = pd.DataFrame(rslt_row)
-    rslt["alpha"] = alpha
-    rslt["bandwidth"] = bandwidth
-    rslt["iteration"] = iteration
-    if not os.path.isfile(output_file):
-        rslt.to_csv(output_file, mode="w", header=True, index=False)
-    else:
-        rslt.to_csv(output_file, mode="a", header=False, index=False)
+    if save_csv:
+        rslt_row = {
+            "x_eval": x_eval.flatten(),
+            "vol_cdf": vol_cdf,
+            "vol_quantile_3": vol_quantile_3,
+            "vol_quantile_2": vol_quantile_2,
+            "cov_cdf": cov_cdf,
+            "cov_quantile_3": cov_quantile_3,
+            "cov_quantile_2": cov_quantile_2,
+            "vol_cdf_local": vol_cdf_local,
+            "cov_cdf_local": cov_cdf_local,
+        }
+        rslt = pd.DataFrame(rslt_row)
+        rslt["alpha"] = alpha
+        rslt["bandwidth"] = bandwidth
+        rslt["iteration"] = iteration
+        rslt["n_grid"] = n_grid
+        if not os.path.isfile(output_file):
+            rslt.to_csv(output_file, mode="w", header=True, index=False)
+        else:
+            rslt.to_csv(output_file, mode="a", header=False, index=False)
 
     # [-] Plots
     if plot:
@@ -363,49 +448,110 @@ def execution(alpha=0.1, iteration=0, plot=True):
         plt.plot(cov_cdf_local, label="Local")
         plt.legend()
         plt.show()
-        display_intervals(x_eval, conf_pred_q_3, data)
-        display_intervals(x_eval, conf_pred_q_2, data)
-        display_intervals(x_eval, conf_pred, data)
-        display_intervals(x_eval, conf_pred_local, data)
+        display_intervals(
+            x_eval,
+            conf_pred_q_3,
+            data,
+            savefig=True,
+            title=f"prediction_intervals_q3.pdf",
+        )
+        display_intervals(
+            x_eval,
+            conf_pred_q_2,
+            data,
+            savefig=True,
+            title=f"prediction_intervals_q2.pdf",
+        )
+        display_intervals(
+            x_eval, conf_pred, data, savefig=True, title=f"prediction_intervals.pdf"
+        )
+        display_intervals(
+            x_eval,
+            conf_pred_local,
+            data,
+            savefig=True,
+            title=f"prediction_intervals_local.pdf",
+        )
+        return data, conf_pred, conf_pred_local, conf_pred_q_3, conf_pred_q_2
 
-    return None
 
-
-# execution(alpha=0.1)
+# data, conf_pred, conf_pred_local, conf_pred_q_3, conf_pred_q_2 = execution(
+# alpha=0.1, bandwidth=0.25, scale=1, plot=True
+# )
 # %%
-
+# [-] Simulation for nsim times
 if __name__ == "__main__":
-    current_date = datetime.now().strftime("%Y-%m-%d")
-    output_file = f"simulation_results_{current_date}.csv"
-
-    bandwidth = 0.15
+    alpha = 0.1
+    bandwidth = 0.25
+    current_date = datetime.now().strftime("%Y%m%d-%H%M%S")
+    output_file = f"simulation_results_{alpha}_{current_date}_fixed_censoring.csv"
 
     nsim = 100
     for i in tqdm.tqdm(range(nsim)):
-        execution(alpha=0.1, iteration=i, plot=False)
+        execution(
+            alpha=alpha,
+            bandwidth=bandwidth,
+            scale=1,
+            iteration=i,
+            plot=False,
+            save_csv=True,
+        )
 # %%
-rslt_df = pd.read_csv("simulation_results_2024-09-18.csv")
+# [-] Analyse the results
+rslt_df = pd.read_csv("simulation_results_0.1_2024-09-20.csv")
 # %%
 df_avg = (
     rslt_df.groupby("x_eval")
     .agg(
         {
             "vol_cdf": "mean",
-            "vol_quantile": "mean",
+            "vol_cdf_local": "mean",
+            "vol_quantile_3": "mean",
+            "vol_quantile_2": "mean",
             "cov_cdf": "mean",
-            "cov_quantile": "mean",
+            "cov_cdf_local": "mean",
+            "cov_quantile_3": "mean",
+            "cov_quantile_2": "mean",
         }
     )
     .reset_index()
 )
-df_avg.plot(x="x_eval", y=["vol_cdf", "vol_quantile"])
+plt.figure()
+df_avg.loc[(df_avg["x_eval"] > -1.45) & (df_avg["x_eval"] < 1.45)].plot(
+    x="x_eval", y=["vol_cdf", "vol_cdf_local", "vol_quantile_3"]
+)
+plt.savefig(f"volume_simulation_{rslt_df['alpha'][0]}.pdf")
+plt.show()
+df_avg[["x_eval", "vol_cdf", "vol_cdf_local", "vol_quantile_3", "vol_quantile_2"]]
 # %%
 plt.figure()
-df_avg.plot(x="x_eval", y=["cov_cdf", "cov_quantile"])
-plt.hlines(0.9, -1.5, 1.5, color="red")
-plt.ylim([0, 1])
+df_avg.loc[(df_avg["x_eval"] > -1.45) & (df_avg["x_eval"] < 1.45)].plot(
+    x="x_eval",
+    y=["cov_cdf", "cov_cdf_local", "cov_quantile_3", "cov_quantile_2"],
+    linestyle="--",
+)
+plt.hlines(1 - rslt_df["alpha"][0], -1.5, 1.5, color="black", linestyle="-")
+plt.ylim([0.7, 1.0])
+plt.savefig(f"coverage_simulation_{rslt_df['alpha'][0]}.pdf")
 plt.show()
-
+# %%
+plt.figure()
+vol_sum = rslt_df.groupby("iteration").agg(
+    {
+        "vol_cdf": "sum",
+        "vol_cdf_local": "sum",
+        "vol_quantile_2": "sum",
+        "vol_quantile_3": "sum",
+    }
+)
+vol_avg = vol_sum * 3 / 50
+plt.figure()
+plt.boxplot(
+    vol_avg,
+    labels=["Conf. pred.", "Local conf. pred.", "Quantile cubic", "Quantile quadratic"],
+)
+plt.savefig(f"volume_simulation_boxplot_{rslt_df['alpha'][0]}.pdf")
+plt.show()
 # %%
 # [-] Example usage
 
@@ -413,7 +559,7 @@ plt.show()
 N = 1000
 x = gen_x(N)
 y = gen_y(x)
-yl, yu = interval_censor(y, 1)
+yl, yu = interval_censor(y, 0.5)
 data = IntervalCensoredData(x, y, yl, yu)
 x, yl, yu = data.x, data.yl, data.yu
 
@@ -519,3 +665,5 @@ vol_cdf = (
 
 plt.plot(vol_cdf)
 plt.plot(vol_quantile)
+
+# %%

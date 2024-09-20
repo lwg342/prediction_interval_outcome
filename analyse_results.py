@@ -183,13 +183,13 @@ results_mean
 results_cov = results_mean.loc[results_mean["Alpha"] == 0.9]
 results_cov
 # %%
-exp = 30.0
-alpha = results_mean["Alpha"].unique()[3]
+exp = 40.0
+alpha = results_mean["Alpha"].unique()[0]
 
 results_with_cov_plot = results_mean.loc[
     (results_mean["Experience"] == exp) & (results_mean["Alpha"] == alpha),
 ].sort_values(by="Education")
-using_mid = results_with_cov_plot["Comment"] == "hot deck"
+using_impute = results_with_cov_plot["Comment"] == "hot deck"
 
 import matplotlib.pyplot as plt
 
@@ -198,7 +198,7 @@ plt.figure()
 # Plot Coverage_conformal
 
 # Plot Coverage_conformal
-results_with_cov_plot.loc[~using_mid].plot(
+results_with_cov_plot.loc[~using_impute].plot(
     x="Education",
     y="Coverage_conformal",
     kind="line",
@@ -207,7 +207,7 @@ results_with_cov_plot.loc[~using_mid].plot(
     ax=plt.gca(),  # Plot on the current axes
 )
 # Plot Coverage_conformal_with_exact_number
-results_with_cov_plot.loc[using_mid].plot(
+results_with_cov_plot.loc[using_impute].plot(
     x="Education",
     y="Coverage_conformal",
     kind="line",
@@ -216,12 +216,66 @@ results_with_cov_plot.loc[using_mid].plot(
     ax=plt.gca(),  # Plot on the same axes
 )
 plt.axhline(1 - alpha, color="tab:red", linestyle="--")
-plt.ylim(0.0, 1)
+plt.ylim(0.5, 1)
 plt.xlabel("Education")
 plt.ylabel("Coverage")
 # plt.title("Coverage Metrics by Education")
 plt.legend()
 plt.savefig(f"coverage-{int(exp)}-{alpha:.2f}.pdf")
 plt.show()
+
+# %%
+# Pivot table for Coverage_conformal
+df = results_mean.copy()
+df["Education"] = df["Education"].astype(int)
+df["Experience"] = df["Experience"].astype(int)
+df["Alpha"] = df["Alpha"].apply(lambda x: f"{x:.2f}")
+
+df_pivot = df.pivot_table(
+    index=[
+        "Education",
+        "Experience",
+    ],
+    columns=["Alpha", "Comment"],
+    values="Coverage_conformal",
+)
+
+df_pivot = df_pivot.map(lambda x: f"{x:.3f}" if not pd.isnull(x) else "")
+
+
+cov_latex = df_pivot.to_latex(multicolumn=True, multirow=True)
+print(cov_latex)
+# %% 
+
+
+import numpy as np
+
+# Create a copy of the pivot table
+df_bold = df_pivot.copy()
+
+# Iterate through each Alpha and Comment pair
+for alpha in df["Alpha"].unique():
+    alpha_val = float(alpha)  # Convert string alpha to float
+    one_minus_alpha = 1 - alpha_val  # Calculate 1 - alpha
+
+    # Iterate through each Education and Experience index
+    for idx in df_pivot.index:
+        full_val = df_pivot.loc[idx, (alpha, "full")]
+        hot_deck_val = df_pivot.loc[idx, (alpha, "hot deck")]
+        
+        # Ensure the values are numeric
+        if not pd.isnull(full_val) and not pd.isnull(hot_deck_val):
+            full_diff = abs(one_minus_alpha - float(full_val))
+            hot_deck_diff = abs(one_minus_alpha - float(hot_deck_val))
+
+            # Bold the value closer to 1 - alpha
+            if full_diff < hot_deck_diff:
+                df_bold.loc[idx, (alpha, "full")] = f"\\textbf{{{full_val}}}"
+            else:
+                df_bold.loc[idx, (alpha, "hot deck")] = f"\\textbf{{{hot_deck_val}}}"
+
+# Convert to LaTeX with bolded values
+cov_latex_bold = df_bold.to_latex(multicolumn=True, multirow=True, escape=False, caption="Coverage of conformal prediction intervals")
+print(cov_latex_bold)
 
 # %%
