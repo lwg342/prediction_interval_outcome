@@ -1,7 +1,7 @@
 import numpy as np
 
 
-def  find_optimal_interval(
+def find_optimal_interval(
     grid_of_intervals: np.ndarray,
     weights: np.ndarray,
     yl: float,
@@ -34,7 +34,7 @@ def find_optimal_set(
     yu: float,
     alpha: float = 0.9,
     K: int = 1,
-    margin: float = 0.1,
+    margin: float = None,
 ) -> list[np.ndarray]:
     """
     Selects the optimal set of intervals from a grid of intervals based on certain criteria.
@@ -50,6 +50,8 @@ def find_optimal_set(
     - optim_set (list): List of selected intervals.
     """
     interval_width = interval_grid[:, 1] - interval_grid[:, 0]
+    if margin is None:
+        margin = np.min(interval_width) * 2
     # sort grid_of_intervals  by interval_width in ascending order
 
     interval_grid_sorted = interval_grid[np.argsort(interval_width)]
@@ -67,7 +69,9 @@ def find_optimal_set(
 
     if K == 2:
         # Each one of the two intervals must have a width < min_width
-        interval_grid_2 = interval_grid_sorted[(interval_width < min_width)&(interval_width > margin)]
+        interval_grid_2 = interval_grid_sorted[
+            (interval_width < min_width) & (interval_width > margin)
+        ]
 
         # The sum of the weights of the two intervals must be >= 1-alpha
         weights_2 = np.array(
